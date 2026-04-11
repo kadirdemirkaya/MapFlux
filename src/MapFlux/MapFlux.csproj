@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
+		<LangVersion>preview</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<DebugType>portable</DebugType>
+
+		<PackageId>MapFlux</PackageId>
+		<Version>1.0.2</Version>
+		<Authors>Kadir Demirkaya</Authors>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<Description>A lightweight, high-performance object-to-object mapping library for .NET with Profile-based and Attribute-based mapping support.</Description>
+		<PackageProjectUrl>https://github.com/kadirdemirkaya/MapFlux</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/kadirdemirkaya/MapFlux</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>mapper object-mapping mapping dotnet net6 net7 net8 net9</PackageTags>
+		<PackageReleaseNotes>Initial release with Profile-based and Attribute-based mapping support.</PackageReleaseNotes>
+		<AssemblyInformationalVersion>1.0.0</AssemblyInformationalVersion>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="" />
+		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+</Project>

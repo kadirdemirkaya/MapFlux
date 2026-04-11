@@ -1,0 +1,44 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36811.4
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MapFlux.Console.Test", "src\MapFlux.Console.Test\MapFlux.Console.Test.csproj", "{DE4D96C2-289F-4F16-A68B-7D31466BBDB7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MapFlux.Unit.Test", "src\MapFlux.Unit.Test\MapFlux.Unit.Test.csproj", "{53310496-10C6-45C2-B137-0954935E1745}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MapFlux", "src\MapFlux\MapFlux.csproj", "{3692F5A4-B644-4510-BEB3-90DC755D88A6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DE4D96C2-289F-4F16-A68B-7D31466BBDB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE4D96C2-289F-4F16-A68B-7D31466BBDB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE4D96C2-289F-4F16-A68B-7D31466BBDB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE4D96C2-289F-4F16-A68B-7D31466BBDB7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53310496-10C6-45C2-B137-0954935E1745}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53310496-10C6-45C2-B137-0954935E1745}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53310496-10C6-45C2-B137-0954935E1745}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53310496-10C6-45C2-B137-0954935E1745}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3692F5A4-B644-4510-BEB3-90DC755D88A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3692F5A4-B644-4510-BEB3-90DC755D88A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3692F5A4-B644-4510-BEB3-90DC755D88A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3692F5A4-B644-4510-BEB3-90DC755D88A6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DE4D96C2-289F-4F16-A68B-7D31466BBDB7} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{53310496-10C6-45C2-B137-0954935E1745} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{3692F5A4-B644-4510-BEB3-90DC755D88A6} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D4C6DB0A-1B3A-4537-BF49-7D64B811D0E5}
+	EndGlobalSection
+EndGlobal
