@@ -1,6 +1,6 @@
 # 🗺️ MapFlux
 
-**MapFlux** is a lightweight, high-performance object-to-object mapping library for .NET. It provides a flexible way to map complex objects using both **Profile-based** configurations (similar to AutoMapper) and **Attribute-based** automatic mapping.
+**MapFlux** is a lightweight, high-performance object-to-object mapping library for .NET designed for modern applications. It provides a flexible way to map complex objects using both **Profile-based** configurations and **Attribute-based** automatic mapping, with a focus on simplicity, performance, and developer productivity.
 
 ---
 
