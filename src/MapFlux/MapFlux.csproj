@@ -13,7 +13,7 @@
 		<DebugType>portable</DebugType>
 
 		<PackageId>MapFlux</PackageId>
-		<Version>1.0.2</Version>
+		<Version>1.1.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
 		<Description>A lightweight, high-performance object-to-object mapping library for .NET with Profile-based and Attribute-based mapping support.</Description>
@@ -22,7 +22,7 @@
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>mapper object-mapping mapping dotnet net6 net7 net8 net9</PackageTags>
 		<PackageReleaseNotes>Initial release with Profile-based and Attribute-based mapping support.</PackageReleaseNotes>
-		<AssemblyInformationalVersion>1.0.0</AssemblyInformationalVersion>
+		<AssemblyInformationalVersion>1.1.0</AssemblyInformationalVersion>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 	</PropertyGroup>

@@ -1,35 +1,41 @@
-# 🗺️ MapFlux
-
-**MapFlux** is a lightweight, high-performance object-to-object mapping library for .NET designed for modern applications. It provides a flexible way to map complex objects using both **Profile-based** configurations and **Attribute-based** automatic mapping, with a focus on simplicity, performance, and developer productivity.
-
----
-
-## 🚀 Features
+# MapFlux
 
 | Package | Downloads | License |
 |---------|-----------|---------|
 | [![NuGet](https://img.shields.io/nuget/v/MapFlux)](https://www.nuget.org/packages/MapFlux) | [![Downloads](https://img.shields.io/nuget/dt/MapFlux)](https://www.nuget.org/packages/MapFlux) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/MapFlux/blob/main/LICENSE.txt) |
 
-- **⚡ High Performance:** Fast and efficient object mapping.
-- **🛠️ Profile-based Configuration:** Define your mappings in separate profile classes for better organization.
-- **🏷️ Attribute Mapping:** Use `[PropertyMapping]` attributes for quick and easy property name overrides.
-- **🔄 Recursive Mapping:** Automatically handles nested objects and collections.
-- **🎯 Fluent API:** Clean and expressive syntax for member-level mapping control.
+MapFlux is a .NET object-to-object mapping library that gives you **two complete mappers in one package** -- a Profile-based mapper with expression-compiled mappings and a static attribute-driven mapper for convention-based scenarios. Pick the style that fits your project.
 
 ---
 
-## 📦 Installation
+## How It Works
 
-### NuGet Package Manager
+MapFlux contains two independent mapping engines:
+
+**Profile-based Mapper** -- When you call `CreateMap<TProfile>()`, each mapping configuration is analyzed at setup time. The engine uses expression trees to build a mapping plan and compiles it into a cached delegate. Properties are matched by convention (case-insensitive name lookup) unless overridden with `ForMember`. At runtime, the compiled delegate executes directly, eliminating per-call reflection overhead. Nested objects and collections are resolved by looking up registered mappings from the same cache.
+
+**ModelMapper** -- A static entry point that requires no configuration. It reflects on source and target types, matches properties by name or `[PropertyMapping]` attribute, and recursively maps complex types and collections via reflection. Ideal for quick transformations where you want to avoid setting up profiles.
+
+---
+
+## Features
+
+- **Dual Mapping Architecture** -- Two independent mapping subsystems in a single library. Profile-based for explicit control, ModelMapper for convention-based instant mapping.
+- **Expression-Compiled Mappings** -- Profile-based mapper builds expression trees at configuration time and compiles them into cached delegates, removing reflection from the hot path.
+- **Attribute-based Mapping** -- Use `[PropertyMapping]` on properties to override names. ModelMapper picks them up automatically with no configuration.
+- **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
+- **No External Dependencies** -- Pure .NET with zero third-party dependencies.
+
+---
+
+## Installation
 
 ```bash
 dotnet add package MapFlux
 ```
 
-### PackageReference
-
 ```xml
-<PackageReference Include="MapFlux" Version="1.0.2" />
+<PackageReference Include="MapFlux" Version="1.1.0" />
 ```
 
 ### Supported Frameworks
@@ -41,13 +47,13 @@ dotnet add package MapFlux
 
 ---
 
-## 🛠️ Usage
+## Usage
 
-### 1. Profile-based Mapping
-Profiles allow you to define complex mapping logic, including type conversions and custom logic for specific members.
+### Approach 1: Profile-based Mapping (Expression-Compiled)
+
+Define mappings in a Profile class with full control over member configuration:
 
 ```csharp
-// 1. Define your Profile
 public class UserProfile : Profile
 {
     public override void Configure(IMapperConfigurationExpression config)
@@ -60,7 +66,6 @@ public class UserProfile : Profile
     }
 }
 
-// 2. Initialize and Use Mapper
 var mapper = new Mapper();
 mapper.CreateMap<UserProfile>();
 
@@ -68,14 +73,15 @@ var user = new User { Name = "John Doe", Email = "john@example.com" };
 var userDto = mapper.Map<User, UserDto>(user);
 ```
 
-### 2. Attribute-based Mapping (ModelMapper)
-For simpler scenarios where you want automatic mapping by property name (or custom naming via attributes), use the static `ModelMapper`.
+### Approach 2: Attribute-based Mapping (ModelMapper)
+
+For quick, convention-driven mapping with optional attribute overrides:
 
 ```csharp
 public class SourceModel
 {
     public string Name { get; set; }
-    
+
     [PropertyMapping("Location")]
     public double LocationCode { get; set; }
 }
@@ -83,50 +89,39 @@ public class SourceModel
 public class TargetModel
 {
     public string Name { get; set; }
-    
+
     [PropertyMapping("Location")]
     public double LocationID { get; set; }
 }
 
-// Automatic mapping with recursion support
 var target = ModelMapper.Map<SourceModel, TargetModel>(source);
 ```
 
 ---
 
-## 🎯 Advanced Features
+## Advanced Features
 
-### 3. Reverse Mapping (Two-way Mapping)
-Define both forward and reverse mappings explicitly:
+### Reverse Mapping
+
+Profile-based mapper supports explicit two-way mapping:
 
 ```csharp
-public class UserProfile : Profile
+config.CreateMap<User, UserDto>(m =>
 {
-    public override void Configure(IMapperConfigurationExpression config)
-    {
-        // Forward: User -> UserDto
-        config.CreateMap<User, UserDto>(m =>
-        {
-            m.ForMember(d => d.Id, opt => opt.MapFrom(s => s.UserId));
-            m.ForMember(d => d.FullName, opt => opt.MapFrom(s => s.Name));
-        });
-        
-        // Reverse: UserDto -> User
-        config.CreateMap<UserDto, User>(m =>
-        {
-            m.ForMember(d => d.UserId, opt => opt.MapFrom(s => s.Id));
-            m.ForMember(d => d.Name, opt => opt.MapFrom(s => s.FullName));
-        });
-    }
-}
+    m.ForMember(d => d.Id, opt => opt.MapFrom(s => s.UserId));
+    m.ForMember(d => d.FullName, opt => opt.MapFrom(s => s.Name));
+});
 
-// Now you can map in both directions
-var userDto = mapper.Map<User, UserDto>(user);
-var user = mapper.Map<UserDto, User>(userDto);  // Reverse mapping
+config.CreateMap<UserDto, User>(m =>
+{
+    m.ForMember(d => d.UserId, opt => opt.MapFrom(s => s.Id));
+    m.ForMember(d => d.Name, opt => opt.MapFrom(s => s.FullName));
+});
 ```
 
-### 4. Ignoring Properties
-Skip specific properties during mapping with `Ignore()`:
+### Ignoring Properties
+
+Skip specific destination properties during mapping:
 
 ```csharp
 config.CreateMap<Source, Destination>(m =>
@@ -135,8 +130,9 @@ config.CreateMap<Source, Destination>(m =>
 });
 ```
 
-### 5. Null Substitution
-Provide default values when source properties are null:
+### Null Substitution
+
+Provide fallback values when source properties are null:
 
 ```csharp
 config.CreateMap<Product, ProductDto>(m =>
@@ -149,26 +145,25 @@ config.CreateMap<Product, ProductDto>(m =>
 });
 ```
 
-### 6. Configuration Validation
-Validate your mapping configuration at startup:
+### Configuration Validation
+
+Validate all mappings at startup to catch configuration errors early:
 
 ```csharp
 var mapper = new Mapper();
 mapper.CreateMap<MyProfile>();
-
-// Throws InvalidOperationException if any properties are unmapped
-mapper.AssertConfigurationIsValid();
+mapper.AssertConfigurationIsValid(); // Throws if any properties are unmapped
 ```
 
-### 7. Convention-based Mapping
-Map properties automatically by matching names (case-insensitive):
+### Convention-based Mapping
+
+Both mappers automatically match properties by name (case-insensitive). Profile-based mapper requires no explicit `ForMember` calls for matching property names:
 
 ```csharp
 public class SimpleProfile : Profile
 {
     public override void Configure(IMapperConfigurationExpression config)
     {
-        // No explicit ForMember needed for matching property names
         config.CreateMap<Source, Destination>(m => { });
     }
 }
@@ -176,50 +171,45 @@ public class SimpleProfile : Profile
 
 ---
 
-## 📚 API Reference
+## API Reference
 
 ### Mapper
+
 | Method | Description |
 |--------|-------------|
-| `CreateMap<TProfile>()` | Registers a mapping profile |
+| `CreateMap<TProfile>()` | Registers a mapping profile (expression-compiled) |
 | `Map<TSource, TDestination>()` | Maps an object to the destination type |
 | `AssertConfigurationIsValid()` | Validates all registered mappings |
 
 ### IMappingExpression<TSource, TDestination>
+
 | Method | Description |
 |--------|-------------|
 | `ForMember<TMember>()` | Configures mapping for a specific destination member |
-| `CreateMap<TSource, TDestination>()` | Create separate reverse mappings for two-way mapping |
+| `ReverseMap()` | Registers a convention-based reverse mapping |
 
 ### IMemberConfigurationExpression
+
 | Method | Description |
 |--------|-------------|
-| `MapFrom()` | Specifies the source property/expression |
-| `Ignore()` | Skips mapping for this property |
-| `NullSubstitute()` | Provides default value when source is null |
+| `MapFrom()` | Specifies the source member |
+| `Ignore()` | Excludes the destination member from mapping |
+| `NullSubstitute()` | Provides a default value when source is null |
 
 ### ModelMapper (Static)
+
 | Method | Description |
 |--------|-------------|
-| `Map<TSource, TTarget>()` | Attribute-based automatic mapping |
+| `Map<TSource, TTarget>()` | Convention + attribute-based automatic mapping |
 
----
+## Project Structure
 
-## 🧪 Unit Tests
+- `MapFlux` -- Core library with both mapping engines
+- `MapFlux.Console.Test` -- Demo and usage examples
+- `MapFlux.Unit.Test` -- Comprehensive xUnit test suite
 
-MapFlux is fully tested with **xUnit**. The `MapFlux.Unit.Test` project covers:
-- Basic property mapping.
-- Custom member logic (`ForMember`).
-- Reverse mapping (`ReverseMap`).
-- Property ignoring (`Ignore`).
-- Null substitution (`NullSubstitute`).
-- Configuration validation (`AssertConfigurationIsValid`).
-- Deeply nested objects (3+ levels).
-- Collections mapping (`List<T>`).
-- Attribute-based mapping overrides.
-- Convention-based automatic mapping.
+Run tests:
 
-To run the tests:
 ```bash
 cd src/MapFlux.Unit.Test
 dotnet test
@@ -227,8 +217,6 @@ dotnet test
 
 ---
 
-## 📁 Project Structure
+## License
 
-- `MapFlux`: Core library containing the mapping engine.
-- `MapFlux.Console.Test`: Demo project showcasing usage examples.
-- `MapFlux.Unit.Test`: Comprehensive unit test suite.
+MIT
