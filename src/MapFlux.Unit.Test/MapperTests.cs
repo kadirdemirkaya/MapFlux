@@ -177,6 +177,62 @@ namespace MapFlux.Unit.Test
         }
 
         [Fact]
+        public void ReverseMap_ShouldNotOverwriteExplicitMap_WhenExplicitMapIsRegisteredFirst()
+        {
+            // Arrange
+            _mapper.CreateMap<ExplicitBeforeReverseMapProfile>();
+            var destination = new PrecedenceDestination { Name = "n", Full = "f" };
+
+            // Act
+            var result = _mapper.Map<PrecedenceDestination, PrecedenceSource>(destination);
+
+            // Assert
+            Assert.Equal("f", result.Name);
+        }
+
+        [Fact]
+        public void ReverseMap_ShouldNotOverwriteExplicitMap_WhenExplicitMapIsRegisteredLast()
+        {
+            // Arrange
+            _mapper.CreateMap<ReverseMapBeforeExplicitProfile>();
+            var destination = new PrecedenceDestination { Name = "n", Full = "f" };
+
+            // Act
+            var result = _mapper.Map<PrecedenceDestination, PrecedenceSource>(destination);
+
+            // Assert
+            Assert.Equal("f", result.Name);
+        }
+
+        [Fact]
+        public void CreateMap_BetweenTwoExplicitMaps_LaterOneWins_NameThenFullOrder()
+        {
+            // Arrange
+            _mapper.CreateMap<ExplicitMapNameThenFullProfile>();
+            var destination = new PrecedenceDestination { Name = "n", Full = "f" };
+
+            // Act
+            var result = _mapper.Map<PrecedenceDestination, PrecedenceSource>(destination);
+
+            // Assert
+            Assert.Equal("f", result.Name);
+        }
+
+        [Fact]
+        public void CreateMap_BetweenTwoExplicitMaps_LaterOneWins_FullThenNameOrder()
+        {
+            // Arrange
+            _mapper.CreateMap<ExplicitMapFullThenNameProfile>();
+            var destination = new PrecedenceDestination { Name = "n", Full = "f" };
+
+            // Act
+            var result = _mapper.Map<PrecedenceDestination, PrecedenceSource>(destination);
+
+            // Assert
+            Assert.Equal("n", result.Name);
+        }
+
+        [Fact]
         public void ForMember_Ignore_ShouldSkipProperty()
         {
             // Arrange
