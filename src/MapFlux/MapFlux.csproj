@@ -16,7 +16,7 @@
 		<Version>1.1.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-		<Description>A lightweight, high-performance object-to-object mapping library for .NET with Profile-based and Attribute-based mapping support.</Description>
+		<Description>A lightweight object-to-object mapping library for .NET with compiled mapping plans, Profile-based and Attribute-based mapping support.</Description>
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/MapFlux</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/kadirdemirkaya/MapFlux</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>

@@ -4,14 +4,19 @@ namespace MapFlux
 {
     public class MemberConfigurationExpression<TSource, TDestination, TMember> : IMemberConfigurationExpression<TSource, TDestination, TMember>
     {
-        public Func<TSource, TMember>? SourceFunc { get; private set; }
+        private Func<TSource, TMember>? _sourceFunc;
+
+        public Func<TSource, TMember>? SourceFunc => _sourceFunc ??= SourceExpression?.Compile();
         public bool IsIgnored { get; private set; }
         public TMember DefaultValue { get; private set; } = default!;
         public bool HasDefaultValue { get; private set; }
 
+        internal Expression<Func<TSource, TMember>>? SourceExpression { get; private set; }
+
         public void MapFrom(Expression<Func<TSource, TMember>> sourceMember)
         {
-            SourceFunc = sourceMember.Compile();
+            SourceExpression = sourceMember;
+            _sourceFunc = null;
         }
 
         public void Ignore()
