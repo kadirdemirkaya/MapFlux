@@ -13,6 +13,14 @@ namespace MapFlux
 
         private readonly ConcurrentDictionary<(Type Source, Type Destination), bool> _explicitMappings = new();
 
+        private int _maxDepth = MappingDepth.DefaultLimit;
+
+        public int MaxDepth
+        {
+            get => _maxDepth;
+            set => _maxDepth = MappingDepth.Validate(value, $"{nameof(Mapper)}.{nameof(MaxDepth)}");
+        }
+
         public void CreateMap<TProfile>() where TProfile : Profile, new()
         {
             var profile = new TProfile();

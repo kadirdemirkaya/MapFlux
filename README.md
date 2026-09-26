@@ -27,6 +27,7 @@ MapFlux contains two independent mapping engines:
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
 - **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element.
 - **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
+- **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
 
 ---
@@ -247,6 +248,42 @@ A `null` collection leaves the destination member `null` and returns `null` from
 
 ---
 
+### Cyclic Graphs and Mapping Depth
+
+Both mappers walk a source graph recursively, so an object that references itself -- directly, through
+another object, or through a collection -- has no natural end. Instead of following such a graph until the
+stack overflows and the process dies, both mappers count how deep the current `Map` call has gone and stop
+at `MaxDepth`, which is `32` by default:
+
+```csharp
+var node = new Node { Id = 1 };
+node.Next = node;
+
+mapper.Map<Node, NodeDto>(node);              // InvalidOperationException
+ModelMapper.Map<Node, NodeDto>(node);         // InvalidOperationException
+```
+
+The exception names both types and the limit that was hit, and it is an ordinary `InvalidOperationException`
+you can catch. Mapping keeps working normally afterwards -- the depth counter is per call, so a failed map
+leaves nothing behind.
+
+A graph that is genuinely deeper than 32 levels is not a cycle, so the limit can be raised. It is per
+`Mapper` instance, and a static property for `ModelMapper`:
+
+```csharp
+mapper.MaxDepth = 128;
+ModelMapper.MaxDepth = 128;
+```
+
+Any value below `1` throws an `ArgumentOutOfRangeException`. When the cycle is not wanted in the destination
+at all, `Ignore` on the member that closes it keeps the depth counter far from the limit:
+
+```csharp
+config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore()));
+```
+
+---
+
 ## API Reference
 
 ### Mapper
@@ -257,6 +294,7 @@ A `null` collection leaves the destination member `null` and returns `null` from
 | `Map<TSource, TDestination>()` | Maps an object to the destination type |
 | `AssertConfigurationIsValid()` | Validates all registered mappings for unmapped destination properties |
 | `AssertConfigurationIsValid(bool strict)` | `strict: true` additionally validates nested and element maps and type compatibility |
+| `MaxDepth` | Maximum recursion depth of a single `Map` call (default `32`); a deeper or cyclic graph throws `InvalidOperationException` |
 
 ### IMappingExpression<TSource, TDestination>
 
@@ -278,6 +316,7 @@ A `null` collection leaves the destination member `null` and returns `null` from
 | Method | Description |
 |--------|-------------|
 | `Map<TSource, TTarget>()` | Convention + attribute-based automatic mapping |
+| `MaxDepth` | Maximum recursion depth of a single `Map` call (default `32`); a deeper or cyclic graph throws `InvalidOperationException` |
 
 ## Project Structure
 

@@ -169,58 +169,72 @@ namespace MapFlux
 
             return source =>
             {
-                var destination = _createInstance!();
+                MappingDepth.Enter(_mapper.MaxDepth, typeof(TSource), typeof(TDestination));
 
-                foreach (var plan in mappingPlan)
+                try
                 {
-                    object? sourceValue;
+                    return MapCore(source, mappingPlan);
+                }
+                finally
+                {
+                    MappingDepth.Exit();
+                }
+            };
+        }
 
-                    var explicitMapper = plan.ExplicitMapper;
-                    if (explicitMapper != null)
+        private object MapCore(object source, List<MappingPlanEntry> mappingPlan)
+        {
+            var destination = _createInstance!();
+
+            foreach (var plan in mappingPlan)
+            {
+                object? sourceValue;
+
+                var explicitMapper = plan.ExplicitMapper;
+                if (explicitMapper != null)
+                {
+                    sourceValue = explicitMapper((TSource)source);
+                }
+                else
+                {
+                    sourceValue = plan.ConventionGetter!(source);
+                }
+
+                if (sourceValue == null && plan.HasNullSub)
+                {
+                    sourceValue = plan.NullSubstitute;
+                }
+
+                if (sourceValue == null) continue;
+
+                var destPropType = plan.DestProp.PropertyType;
+                bool handled = false;
+
+                var collectionOutcome = CollectionMapper.TryMap(
+                    sourceValue, destPropType, _mapper, plan.DestProp, out var mappedCollection);
+
+                if (collectionOutcome == CollectionMapOutcome.Mapped)
+                {
+                    plan.Setter(destination!, mappedCollection!);
+                    handled = true;
+                }
+
+                if (!handled)
+                {
+                    if (_mapper._mappings.TryGetValue((sourceValue.GetType(), destPropType), out var nestedMappingFunc))
                     {
-                        sourceValue = explicitMapper((TSource)source);
+                        plan.Setter(destination!, nestedMappingFunc(sourceValue));
                     }
                     else
                     {
-                        sourceValue = plan.ConventionGetter!(source);
-                    }
-
-                    if (sourceValue == null && plan.HasNullSub)
-                    {
-                        sourceValue = plan.NullSubstitute;
-                    }
-
-                    if (sourceValue == null) continue;
-
-                    var destPropType = plan.DestProp.PropertyType;
-                    bool handled = false;
-
-                    var collectionOutcome = CollectionMapper.TryMap(
-                        sourceValue, destPropType, _mapper, plan.DestProp, out var mappedCollection);
-
-                    if (collectionOutcome == CollectionMapOutcome.Mapped)
-                    {
-                        plan.Setter(destination!, mappedCollection!);
-                        handled = true;
-                    }
-
-                    if (!handled)
-                    {
-                        if (_mapper._mappings.TryGetValue((sourceValue.GetType(), destPropType), out var nestedMappingFunc))
-                        {
-                            plan.Setter(destination!, nestedMappingFunc(sourceValue));
-                        }
-                        else
-                        {
-                            plan.Setter(destination!, plan.Converter is null
-                                ? sourceValue
-                                : plan.Converter.Convert(sourceValue));
-                        }
+                        plan.Setter(destination!, plan.Converter is null
+                            ? sourceValue
+                            : plan.Converter.Convert(sourceValue));
                     }
                 }
+            }
 
-                return destination!;
-            };
+            return destination!;
         }
 
         internal HashSet<string> GetIgnoredMembers() => _ignoredMembers;
