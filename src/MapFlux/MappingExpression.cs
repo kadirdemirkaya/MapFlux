@@ -193,6 +193,32 @@ namespace MapFlux
         internal HashSet<string> GetIgnoredMembers() => _ignoredMembers;
         internal Dictionary<string, Func<TSource, object?>> GetExplicitMappings() => _memberMappings;
 
+        internal IReadOnlyList<(PropertyInfo DestProp, PropertyInfo? SourceProp, bool IsExplicit)> GetMemberTypeChecks()
+        {
+            var sourceProperties = typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var destProperties = typeof(TDestination).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            var result = new List<(PropertyInfo, PropertyInfo?, bool)>();
+
+            foreach (var destProp in destProperties)
+            {
+                if (!destProp.CanWrite) continue;
+                if (_ignoredMembers.Contains(destProp.Name)) continue;
+
+                if (_memberMappings.ContainsKey(destProp.Name))
+                {
+                    result.Add((destProp, null, true));
+                    continue;
+                }
+
+                var sourceProp = sourceProperties.FirstOrDefault(p =>
+                    p.Name.Equals(destProp.Name, StringComparison.OrdinalIgnoreCase));
+                result.Add((destProp, sourceProp, false));
+            }
+
+            return result;
+        }
+
         private sealed class MappingPlanEntry
         {
             public PropertyInfo DestProp { get; }
@@ -319,21 +345,7 @@ namespace MapFlux
                     Expression.Convert(body, typeof(object)), valueParameter).Compile();
             }
 
-            private static bool IsNumericOrEnum(Type type)
-            {
-                if (type.IsEnum)
-                {
-                    return true;
-                }
-
-                return Type.GetTypeCode(type) switch
-                {
-                    TypeCode.SByte or TypeCode.Byte or TypeCode.Int16 or TypeCode.UInt16 or
-                    TypeCode.Int32 or TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64 or
-                    TypeCode.Single or TypeCode.Double or TypeCode.Decimal => true,
-                    _ => false
-                };
-            }
+            private static bool IsNumericOrEnum(Type type) => TypeCompatibility.IsNumericOrEnum(type);
         }
     }
 }

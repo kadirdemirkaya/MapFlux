@@ -26,6 +26,7 @@ MapFlux contains two independent mapping engines:
 - **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
 - **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element.
+- **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
 
 ---
@@ -157,6 +158,32 @@ mapper.CreateMap<MyProfile>();
 mapper.AssertConfigurationIsValid(); // Throws if any properties are unmapped
 ```
 
+A member whose type needs a nested or element map that was never registered passes this check --
+`AssertConfigurationIsValid()` only looks at property names. `Map` still reports it, with an
+`InvalidOperationException` naming the destination member and both types, the moment that member is
+mapped:
+
+```csharp
+public class Order { public Customer Customer { get; set; } }
+public class OrderDto { public CustomerDto Customer { get; set; } }
+
+config.CreateMap<Order, OrderDto>(m => { }); // no CreateMap<Customer, CustomerDto>
+
+mapper.AssertConfigurationIsValid();               // passes -- "Customer" matches by name
+mapper.Map<Order, OrderDto>(order);                // throws: OrderDto.Customer needs Customer -> CustomerDto
+```
+
+Pass `true` to check every registered mapping's nested and element maps and type compatibility
+(including the [Type Conversion](#type-conversion) rules) up front instead, and get every problem in
+one exception:
+
+```csharp
+mapper.AssertConfigurationIsValid(true); // throws: OrderDto.Customer needs Customer -> CustomerDto
+```
+
+This is opt-in and additive: `AssertConfigurationIsValid()` keeps validating only property names, so a
+configuration that relies on today's default behavior keeps starting up unchanged.
+
 ### Convention-based Mapping
 
 Both mappers automatically match properties by name (case-insensitive). Profile-based mapper requires no explicit `ForMember` calls for matching property names:
@@ -224,7 +251,8 @@ A `null` collection leaves the destination member `null` and returns `null` from
 |--------|-------------|
 | `CreateMap<TProfile>()` | Registers a mapping profile (expression-compiled) |
 | `Map<TSource, TDestination>()` | Maps an object to the destination type |
-| `AssertConfigurationIsValid()` | Validates all registered mappings |
+| `AssertConfigurationIsValid()` | Validates all registered mappings for unmapped destination properties |
+| `AssertConfigurationIsValid(bool strict)` | `strict: true` additionally validates nested and element maps and type compatibility |
 
 ### IMappingExpression<TSource, TDestination>
 

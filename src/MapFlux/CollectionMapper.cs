@@ -66,6 +66,18 @@ namespace MapFlux
                 $"assignable to {destinationElementType.Name}. Register the element map with CreateMap.");
         }
 
+        internal static bool TryGetShapes(
+            Type sourceType,
+            Type destinationType,
+            out Type sourceElementType,
+            out Type destinationElementType)
+        {
+            destinationElementType = null!;
+
+            return TryGetElementType(sourceType, out sourceElementType) &&
+                   TryGetDestinationShape(destinationType, out destinationElementType, out _);
+        }
+
         internal static string Describe(Type type)
         {
             if (type.IsArray)

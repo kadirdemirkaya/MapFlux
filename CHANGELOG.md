@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `Mapper.AssertConfigurationIsValid(bool strict)` overload: `strict: true` additionally validates every registered mapping's nested and element maps and member type compatibility (including the numeric/`Nullable<T>`/enum conversions above), aggregating every problem into one `InvalidOperationException`. The existing `AssertConfigurationIsValid()` overload is unchanged and keeps validating only unmapped destination properties.
 - `Mapper.Map` now maps any source `IEnumerable<T>` other than `string` — an array, a `List<T>`, a collection interface, a LINQ result — into `T[]`, `List<T>`, `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, `IReadOnlyCollection<T>` and `IReadOnlyList<T>`, both for a member and for a top-level `Map` call. A registered element map is applied to every element; otherwise the source instance is passed through when the destination type already accepts it, or the elements are copied into the destination shape when the source element type is assignable. Previously only `List<T>` to `List<T>` worked, and an array, `IEnumerable<T>` or `IReadOnlyList<T>` destination failed. A `null` collection stays `null` and a `null` element is kept as `null`, as for a `List<T>`.
 
 ### Fixed
