@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Reflection;
 
 namespace MapFlux
@@ -21,6 +22,14 @@ namespace MapFlux
             typeof(IReadOnlyList<>)
         };
 
+        private static readonly ConcurrentDictionary<Type, Type?> _elementTypes = new();
+
+        private static readonly ConcurrentDictionary<Type, DestinationShape?> _destinationShapes = new();
+
+        private static readonly Func<Type, Type?> _findElementType = FindElementType;
+
+        private static readonly Func<Type, DestinationShape?> _findDestinationShape = FindDestinationShape;
+
         internal static CollectionMapOutcome TryMap(
             object source,
             Type destinationType,
@@ -30,9 +39,31 @@ namespace MapFlux
         {
             result = null;
 
-            var sourceType = source.GetType();
+            if (source is not IEnumerable)
+            {
+                return CollectionMapOutcome.NotACollection;
+            }
 
-            if (source is not IEnumerable sourceItems ||
+            var outcome = TryResolve(source.GetType(), destinationType, mapper, destinationMember, out var build);
+
+            if (outcome == CollectionMapOutcome.Mapped)
+            {
+                result = build!(source);
+            }
+
+            return outcome;
+        }
+
+        internal static CollectionMapOutcome TryResolve(
+            Type sourceType,
+            Type destinationType,
+            Mapper mapper,
+            PropertyInfo? destinationMember,
+            out Func<object, object>? build)
+        {
+            build = null;
+
+            if (!typeof(IEnumerable).IsAssignableFrom(sourceType) ||
                 !TryGetElementType(sourceType, out var sourceElementType) ||
                 !TryGetDestinationShape(destinationType, out var destinationElementType, out var listTypeToConstruct))
             {
@@ -41,7 +72,7 @@ namespace MapFlux
 
             if (mapper._mappings.TryGetValue((sourceElementType, destinationElementType), out var elementMapper))
             {
-                result = Build(sourceItems, destinationElementType, listTypeToConstruct, elementMapper);
+                build = source => Build((IEnumerable)source, destinationElementType, listTypeToConstruct, elementMapper);
                 return CollectionMapOutcome.Mapped;
             }
 
@@ -52,7 +83,7 @@ namespace MapFlux
 
             if (destinationElementType.IsAssignableFrom(sourceElementType))
             {
-                result = Build(sourceItems, destinationElementType, listTypeToConstruct, null);
+                build = source => Build((IEnumerable)source, destinationElementType, listTypeToConstruct, null);
                 return CollectionMapOutcome.Mapped;
             }
 
@@ -77,6 +108,9 @@ namespace MapFlux
             return TryGetElementType(sourceType, out sourceElementType) &&
                    TryGetDestinationShape(destinationType, out destinationElementType, out _);
         }
+
+        internal static bool IsCollectionDestination(Type destinationType) =>
+            TryGetDestinationShape(destinationType, out _, out _);
 
         internal static string Describe(Type type)
         {
@@ -119,6 +153,11 @@ namespace MapFlux
                 return list;
             }
 
+            if (sourceItems is ICollection sourceCollection)
+            {
+                return BuildArray(sourceItems, destinationElementType, sourceCollection.Count, elementMapper);
+            }
+
             var mappedItems = new List<object?>();
 
             foreach (var item in sourceItems)
@@ -136,6 +175,35 @@ namespace MapFlux
             return array;
         }
 
+        private static object BuildArray(
+            IEnumerable sourceItems,
+            Type destinationElementType,
+            int count,
+            Func<object, object>? elementMapper)
+        {
+            var array = Array.CreateInstance(destinationElementType, count);
+            var referenceArray = array as object?[];
+            var index = 0;
+
+            foreach (var item in sourceItems)
+            {
+                var mapped = MapElement(item, elementMapper);
+
+                if (referenceArray is null)
+                {
+                    array.SetValue(mapped, index);
+                }
+                else
+                {
+                    referenceArray[index] = mapped;
+                }
+
+                index++;
+            }
+
+            return array;
+        }
+
         private static object? MapElement(object? item, Func<object, object>? elementMapper)
         {
             if (item is null)
@@ -148,28 +216,26 @@ namespace MapFlux
 
         internal static bool TryGetElementType(Type type, out Type elementType)
         {
-            elementType = null!;
+            elementType = _elementTypes.GetOrAdd(type, _findElementType)!;
 
+            return elementType is not null;
+        }
+
+        private static Type? FindElementType(Type type)
+        {
             if (type == typeof(string))
             {
-                return false;
+                return null;
             }
 
             if (type.IsArray)
             {
-                if (type.GetArrayRank() != 1)
-                {
-                    return false;
-                }
-
-                elementType = type.GetElementType()!;
-                return true;
+                return type.GetArrayRank() == 1 ? type.GetElementType() : null;
             }
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
             {
-                elementType = type.GetGenericArguments()[0];
-                return true;
+                return type.GetGenericArguments()[0];
             }
 
             Type? enumerableInterface = null;
@@ -180,20 +246,14 @@ namespace MapFlux
                 {
                     if (enumerableInterface is not null)
                     {
-                        return false;
+                        return null;
                     }
 
                     enumerableInterface = candidate;
                 }
             }
 
-            if (enumerableInterface is null)
-            {
-                return false;
-            }
-
-            elementType = enumerableInterface.GetGenericArguments()[0];
-            return true;
+            return enumerableInterface?.GetGenericArguments()[0];
         }
 
         private static bool TryGetDestinationShape(
@@ -201,23 +261,26 @@ namespace MapFlux
             out Type elementType,
             out Type? listTypeToConstruct)
         {
-            elementType = null!;
-            listTypeToConstruct = null;
+            var shape = _destinationShapes.GetOrAdd(destinationType, _findDestinationShape);
 
+            elementType = shape is null ? null! : shape.ElementType;
+            listTypeToConstruct = shape?.ListTypeToConstruct;
+
+            return shape is not null;
+        }
+
+        private static DestinationShape? FindDestinationShape(Type destinationType)
+        {
             if (destinationType == typeof(string))
             {
-                return false;
+                return null;
             }
 
             if (destinationType.IsArray)
             {
-                if (destinationType.GetArrayRank() != 1)
-                {
-                    return false;
-                }
-
-                elementType = destinationType.GetElementType()!;
-                return true;
+                return destinationType.GetArrayRank() == 1
+                    ? new DestinationShape(destinationType.GetElementType()!, null)
+                    : null;
             }
 
             if (destinationType.IsInterface)
@@ -225,25 +288,37 @@ namespace MapFlux
                 if (!destinationType.IsGenericType ||
                     !_destinationInterfaces.Contains(destinationType.GetGenericTypeDefinition()))
                 {
-                    return false;
+                    return null;
                 }
 
-                elementType = destinationType.GetGenericArguments()[0];
-                listTypeToConstruct = typeof(List<>).MakeGenericType(elementType);
-                return true;
+                var interfaceElementType = destinationType.GetGenericArguments()[0];
+
+                return new DestinationShape(interfaceElementType, typeof(List<>).MakeGenericType(interfaceElementType));
             }
 
             if (!destinationType.IsGenericType ||
                 destinationType.IsAbstract ||
                 !typeof(IList).IsAssignableFrom(destinationType) ||
                 destinationType.GetConstructor(Type.EmptyTypes) is null ||
-                !TryGetElementType(destinationType, out elementType))
+                !TryGetElementType(destinationType, out var elementType))
             {
-                return false;
+                return null;
             }
 
-            listTypeToConstruct = destinationType;
-            return true;
+            return new DestinationShape(elementType, destinationType);
+        }
+
+        private sealed class DestinationShape
+        {
+            internal DestinationShape(Type elementType, Type? listTypeToConstruct)
+            {
+                ElementType = elementType;
+                ListTypeToConstruct = listTypeToConstruct;
+            }
+
+            internal Type ElementType { get; }
+
+            internal Type? ListTypeToConstruct { get; }
         }
     }
 }

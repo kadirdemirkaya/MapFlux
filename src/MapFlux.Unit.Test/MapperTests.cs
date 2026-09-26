@@ -993,6 +993,213 @@ namespace MapFlux.Unit.Test
             Assert.Equal(32, _mapper.MaxDepth);
         }
 
+        [Fact]
+        public void Map_NestedMapRegisteredAfterOuterMap_ShouldMapTheNestedMember()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapMissingProfile>();
+            _mapper.CreateMap<NestedChildProfile>();
+            var source = new ParentSource { Title = "Parent", Child = new ChildSource { Note = "Note" } };
+
+            // Act
+            var result = _mapper.Map<ParentSource, ParentTarget>(source);
+
+            // Assert
+            Assert.Equal("Parent", result.Title);
+            Assert.NotNull(result.Child);
+            Assert.Equal("Note", result.Child.Note);
+        }
+
+        [Fact]
+        public void Map_NestedMapRegisteredAfterAFailedMapCall_ShouldMapTheNestedMember()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapMissingProfile>();
+            var source = new ParentSource { Title = "Parent", Child = new ChildSource { Note = "Note" } };
+
+            // Act
+            Assert.Throws<InvalidOperationException>(() => _mapper.Map<ParentSource, ParentTarget>(source));
+            _mapper.CreateMap<NestedChildProfile>();
+            var result = _mapper.Map<ParentSource, ParentTarget>(source);
+
+            // Assert
+            Assert.NotNull(result.Child);
+            Assert.Equal("Note", result.Child.Note);
+        }
+
+        [Fact]
+        public void Map_ElementMapRegisteredAfterOuterMap_ShouldMapTheCollectionMember()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionOuterProfile>();
+            _mapper.CreateMap<ElementProfile>();
+            var source = new CollectionShapeSource
+            {
+                ListItems = new List<ElementSource> { new ElementSource { Id = 1, Name = "First" } }
+            };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Equal(1, Assert.Single(result.ListItems).ElementId);
+            Assert.Equal("First", result.ListItems[0].ElementName);
+        }
+
+        [Fact]
+        public void Map_ElementMapRegisteredAfterAFailedMapCall_ShouldMapTheCollectionMember()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionOuterProfile>();
+            var source = new CollectionShapeSource
+            {
+                ListItems = new List<ElementSource> { new ElementSource { Id = 2, Name = "Second" } }
+            };
+
+            // Act
+            Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source));
+            _mapper.CreateMap<ElementProfile>();
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Equal(2, Assert.Single(result.ListItems).ElementId);
+            Assert.Equal("Second", result.ListItems[0].ElementName);
+        }
+
+        [Fact]
+        public void Map_DerivedMemberValue_ShouldUseTheMapOfItsRuntimeType()
+        {
+            // Arrange
+            _mapper.CreateMap<RuntimeTypeProfile>();
+            var source = new RuntimeTypeSource
+            {
+                Title = "Title",
+                Detail = new RuntimeTypeFirstDetailSource { Note = "Note", Extra = "Extra" }
+            };
+
+            // Act
+            var result = _mapper.Map<RuntimeTypeSource, RuntimeTypeTarget>(source);
+
+            // Assert
+            Assert.Equal("Title", result.Title);
+            Assert.Equal("Note", result.Detail.Note);
+            Assert.Equal("Extra", result.Detail.Extra);
+        }
+
+        [Fact]
+        public void Map_MemberValuesOfTwoRuntimeTypes_ShouldMapEachWithItsOwnMap()
+        {
+            // Arrange
+            _mapper.CreateMap<RuntimeTypeProfile>();
+            var first = new RuntimeTypeSource
+            {
+                Title = "First",
+                Detail = new RuntimeTypeFirstDetailSource { Note = "FirstNote", Extra = "FirstExtra" }
+            };
+            var second = new RuntimeTypeSource
+            {
+                Title = "Second",
+                Detail = new RuntimeTypeSecondDetailSource { Note = "SecondNote", Marker = "SecondMarker" }
+            };
+
+            // Act
+            var firstResult = _mapper.Map<RuntimeTypeSource, RuntimeTypeTarget>(first);
+            var secondResult = _mapper.Map<RuntimeTypeSource, RuntimeTypeTarget>(second);
+            var firstAgain = _mapper.Map<RuntimeTypeSource, RuntimeTypeTarget>(first);
+
+            // Assert
+            Assert.Equal("FirstNote", firstResult.Detail.Note);
+            Assert.Equal("FirstExtra", firstResult.Detail.Extra);
+            Assert.Equal("SecondNote", secondResult.Detail.Note);
+            Assert.Equal("SecondMarker", secondResult.Detail.Extra);
+            Assert.Equal("FirstNote", firstAgain.Detail.Note);
+            Assert.Equal("FirstExtra", firstAgain.Detail.Extra);
+        }
+
+        [Fact]
+        public void Map_NullableMemberWithNullSubstitute_ShouldUseTheSubstitute()
+        {
+            // Arrange
+            _mapper.CreateMap<NullSubstituteNullableProfile>();
+
+            // Act
+            var withValue = _mapper.Map<ConversionSource, ConversionTarget>(
+                new ConversionSource { OptionalCount = 7 });
+            var withoutValue = _mapper.Map<ConversionSource, ConversionTarget>(
+                new ConversionSource { OptionalCount = null });
+
+            // Assert
+            Assert.Equal(7L, withValue.Score);
+            Assert.Equal(42L, withoutValue.Score);
+        }
+
+        [Fact]
+        public void Map_PrivateSetterMember_ShouldStillBeMapped()
+        {
+            // Arrange
+            _mapper.CreateMap<PrivateSetterProfile>();
+
+            // Act
+            var result = _mapper.Map<Source, PrivateSetterTarget>(new Source { Id = 3, Name = "Private" });
+
+            // Assert
+            Assert.Equal(3, result.Id);
+            Assert.Equal("Private", result.Name);
+        }
+
+        [Fact]
+        public void Map_CollectionMemberMappedTwice_ShouldBuildEachResultIndependently()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var first = new CollectionShapeSource
+            {
+                ListItems = new List<ElementSource> { new ElementSource { Id = 1, Name = "First" } }
+            };
+            var second = new CollectionShapeSource
+            {
+                ListItems = new List<ElementSource>
+                {
+                    new ElementSource { Id = 2, Name = "Second" },
+                    new ElementSource { Id = 3, Name = "Third" }
+                }
+            };
+
+            // Act
+            var firstResult = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(first);
+            var secondResult = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(second);
+
+            // Assert
+            Assert.Equal(1, Assert.Single(firstResult.ListItems).ElementId);
+            Assert.Equal(2, secondResult.ListItems.Count);
+            Assert.Equal(2, secondResult.ListItems[0].ElementId);
+            Assert.Equal(3, secondResult.ListItems[1].ElementId);
+            Assert.NotSame(firstResult.ListItems, secondResult.ListItems);
+        }
+
+        [Fact]
+        public void Map_TopLevelLazyEnumerableToArray_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var items = new List<ElementSource>
+            {
+                new ElementSource { Id = 1, Name = "First" },
+                new ElementSource { Id = 2, Name = "Second" }
+            };
+
+            // Act
+            var result = _mapper.Map<IEnumerable<ElementSource>, ElementTarget[]>(items.Where(item => item.Id > 0));
+
+            // Assert
+            Assert.Equal(2, result.Length);
+            Assert.Equal(1, result[0].ElementId);
+            Assert.Equal("First", result[0].ElementName);
+            Assert.Equal(2, result[1].ElementId);
+            Assert.Equal("Second", result[1].ElementName);
+        }
+
         private static CycleNodeSource BuildChain(int length)
         {
             var head = new CycleNodeSource { Id = 0 };

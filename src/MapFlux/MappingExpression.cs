@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -6,36 +5,30 @@ namespace MapFlux
 {
     public class MappingExpression<TSource, TDestination> : IMappingExpression<TSource, TDestination>
     {
-        private static Func<TDestination>? _createInstance;
-        private static readonly ConcurrentDictionary<string, Action<object, object>> _propertySetters = new();
-        private static readonly ConcurrentDictionary<string, Func<object, object?>> _propertyGetters = new();
-
-        private readonly Dictionary<string, Func<TSource, object?>> _memberMappings = new();
-        private readonly Dictionary<string, Type> _memberMappingTypes = new();
+        private readonly Dictionary<string, LambdaExpression> _memberMappings = new();
         private readonly HashSet<string> _ignoredMembers = new();
-        private readonly Dictionary<string, object?> _nullSubstitutes = new();
+        private readonly Dictionary<string, NullSubstituteValue> _nullSubstitutes = new();
 
         private readonly Mapper _mapper;
 
         public MappingExpression(Mapper mapper)
         {
             _mapper = mapper;
-            _createInstance ??= BuildCreateInstance();
+            EnsureDestinationIsConstructible();
         }
 
-        private static Func<TDestination> BuildCreateInstance()
+        private static void EnsureDestinationIsConstructible()
         {
-            if (typeof(TDestination).GetConstructor(Type.EmptyTypes) is null)
+            if (typeof(TDestination).GetConstructor(Type.EmptyTypes) is not null)
             {
-                throw new InvalidOperationException(
-                    $"CreateMap<{typeof(TSource).Name}, {typeof(TDestination).Name}> failed: " +
-                    $"{typeof(TDestination).Name} does not have a public parameterless constructor, " +
-                    "so MapFlux cannot create instances of it. Add a parameterless constructor, " +
-                    "or map to a destination type that has one.");
+                return;
             }
 
-            var newExpr = Expression.New(typeof(TDestination));
-            return Expression.Lambda<Func<TDestination>>(newExpr).Compile();
+            throw new InvalidOperationException(
+                $"CreateMap<{typeof(TSource).Name}, {typeof(TDestination).Name}> failed: " +
+                $"{typeof(TDestination).Name} does not have a public parameterless constructor, " +
+                "so MapFlux cannot create instances of it. Add a parameterless constructor, " +
+                "or map to a destination type that has one.");
         }
 
         public IMappingExpression<TSource, TDestination> ForMember<TMember>(
@@ -67,10 +60,9 @@ namespace MapFlux
                 return this;
             }
 
-            if (memberConfig.SourceFunc != null)
+            if (memberConfig.SourceExpression != null)
             {
-                _memberMappings[destinationName] = memberConfig.ToObjectFunc();
-                _memberMappingTypes[destinationName] = typeof(TMember);
+                _memberMappings[destinationName] = memberConfig.SourceExpression!;
             }
             else if (memberConfig.HasDefaultValue)
             {
@@ -95,7 +87,7 @@ namespace MapFlux
 
             if (memberConfig.HasDefaultValue)
             {
-                _nullSubstitutes[destinationName] = memberConfig.DefaultValue;
+                _nullSubstitutes[destinationName] = new NullSubstituteValue(memberConfig.DefaultValue, typeof(TMember));
             }
 
             return this;
@@ -107,73 +99,18 @@ namespace MapFlux
             return this;
         }
 
-        private static Action<object, object> GetPropertySetter(PropertyInfo prop)
-        {
-            return _propertySetters.GetOrAdd(prop.Name, _ =>
-            {
-                var instanceParam = Expression.Parameter(typeof(object), "instance");
-                var valueParam = Expression.Parameter(typeof(object), "value");
-                var castInstance = Expression.Convert(instanceParam, typeof(TDestination));
-                var castValue = Expression.Convert(valueParam, prop.PropertyType);
-                var setProp = Expression.Call(castInstance, prop.GetSetMethod(true)!, castValue);
-                return Expression.Lambda<Action<object, object>>(setProp, instanceParam, valueParam).Compile();
-            });
-        }
-
-        private static Func<object, object?> GetSourcePropertyGetter(PropertyInfo prop)
-        {
-            return _propertyGetters.GetOrAdd(prop.Name, _ =>
-            {
-                var instanceParam = Expression.Parameter(typeof(object), "instance");
-                var castInstance = Expression.Convert(instanceParam, typeof(TSource));
-                var getProp = Expression.Property(castInstance, prop);
-                var boxed = Expression.Convert(getProp, typeof(object));
-                return Expression.Lambda<Func<object, object?>>(boxed, instanceParam).Compile();
-            });
-        }
-
         public Func<object, object> GetMappingFunction()
         {
-            var sourceProperties = typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            var destProperties = typeof(TDestination).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-            var mappingPlan = new List<MappingPlanEntry>();
-
-            foreach (var destProp in destProperties)
-            {
-                if (!destProp.CanWrite) continue;
-                if (_ignoredMembers.Contains(destProp.Name)) continue;
-
-                var setter = GetPropertySetter(destProp);
-                _nullSubstitutes.TryGetValue(destProp.Name, out var nullSub);
-                bool hasNullSub = _nullSubstitutes.ContainsKey(destProp.Name);
-
-                if (_memberMappings.TryGetValue(destProp.Name, out var explicitMapper))
-                {
-                    var converter = MemberValueConverter.Create(destProp, _memberMappingTypes[destProp.Name]);
-                    mappingPlan.Add(new MappingPlanEntry(destProp, explicitMapper, null, setter, nullSub, hasNullSub, converter));
-                }
-                else
-                {
-                    var sourceProp = sourceProperties.FirstOrDefault(p =>
-                        p.Name.Equals(destProp.Name, StringComparison.OrdinalIgnoreCase));
-
-                    if (sourceProp != null)
-                    {
-                        var getter = GetSourcePropertyGetter(sourceProp);
-                        var converter = MemberValueConverter.Create(destProp, sourceProp.PropertyType);
-                        mappingPlan.Add(new MappingPlanEntry(destProp, null, getter, setter, nullSub, hasNullSub, converter));
-                    }
-                }
-            }
+            var plan = BuildPlan();
+            var mapper = _mapper;
 
             return source =>
             {
-                MappingDepth.Enter(_mapper.MaxDepth, typeof(TSource), typeof(TDestination));
+                MappingDepth.Enter(mapper.MaxDepth, typeof(TSource), typeof(TDestination));
 
                 try
                 {
-                    return MapCore(source, mappingPlan);
+                    return plan((TSource)source)!;
                 }
                 finally
                 {
@@ -182,63 +119,176 @@ namespace MapFlux
             };
         }
 
-        private object MapCore(object source, List<MappingPlanEntry> mappingPlan)
+        private Func<TSource, TDestination> BuildPlan()
         {
-            var destination = _createInstance!();
+            var sourceParameter = Expression.Parameter(typeof(TSource), "source");
+            var destination = Expression.Variable(typeof(TDestination), "destination");
 
-            foreach (var plan in mappingPlan)
+            var statements = new List<Expression>
             {
-                object? sourceValue;
+                Expression.Assign(destination, Expression.New(typeof(TDestination)))
+            };
 
-                var explicitMapper = plan.ExplicitMapper;
-                if (explicitMapper != null)
+            var sourceProperties = typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var destinationProperties = typeof(TDestination).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            foreach (var destinationProperty in destinationProperties)
+            {
+                if (!destinationProperty.CanWrite) continue;
+                if (_ignoredMembers.Contains(destinationProperty.Name)) continue;
+
+                var statement = BuildMemberStatement(destinationProperty, sourceProperties, sourceParameter, destination);
+
+                if (statement is not null)
                 {
-                    sourceValue = explicitMapper((TSource)source);
-                }
-                else
-                {
-                    sourceValue = plan.ConventionGetter!(source);
-                }
-
-                if (sourceValue == null && plan.HasNullSub)
-                {
-                    sourceValue = plan.NullSubstitute;
-                }
-
-                if (sourceValue == null) continue;
-
-                var destPropType = plan.DestProp.PropertyType;
-                bool handled = false;
-
-                var collectionOutcome = CollectionMapper.TryMap(
-                    sourceValue, destPropType, _mapper, plan.DestProp, out var mappedCollection);
-
-                if (collectionOutcome == CollectionMapOutcome.Mapped)
-                {
-                    plan.Setter(destination!, mappedCollection!);
-                    handled = true;
-                }
-
-                if (!handled)
-                {
-                    if (_mapper._mappings.TryGetValue((sourceValue.GetType(), destPropType), out var nestedMappingFunc))
-                    {
-                        plan.Setter(destination!, nestedMappingFunc(sourceValue));
-                    }
-                    else
-                    {
-                        plan.Setter(destination!, plan.Converter is null
-                            ? sourceValue
-                            : plan.Converter.Convert(sourceValue));
-                    }
+                    statements.Add(statement);
                 }
             }
 
-            return destination!;
+            statements.Add(destination);
+
+            return Expression.Lambda<Func<TSource, TDestination>>(
+                Expression.Block(new[] { destination }, statements), sourceParameter).Compile();
+        }
+
+        private Expression? BuildMemberStatement(
+            PropertyInfo destinationProperty,
+            PropertyInfo[] sourceProperties,
+            ParameterExpression sourceParameter,
+            ParameterExpression destination)
+        {
+            Expression sourceValue;
+
+            if (_memberMappings.TryGetValue(destinationProperty.Name, out var explicitMapping))
+            {
+                sourceValue = Expression.Invoke(explicitMapping, sourceParameter);
+            }
+            else
+            {
+                var sourceProperty = FindConventionSource(sourceProperties, destinationProperty.Name);
+
+                if (sourceProperty is null)
+                {
+                    return null;
+                }
+
+                sourceValue = Expression.Property(sourceParameter, sourceProperty);
+            }
+
+            var value = Expression.Variable(sourceValue.Type, "value");
+            var readValue = Expression.Assign(value, sourceValue);
+            var setValue = BuildSetStatement(destination, destinationProperty, value);
+            var notNullTest = BuildNotNullTest(value);
+
+            if (notNullTest is null)
+            {
+                return Expression.Block(new[] { value }, readValue, setValue);
+            }
+
+            var setSubstitute = BuildSubstituteStatement(destination, destinationProperty);
+
+            var guardedSet = setSubstitute is null
+                ? Expression.IfThen(notNullTest, setValue)
+                : Expression.IfThenElse(notNullTest, setValue, setSubstitute);
+
+            return Expression.Block(new[] { value }, readValue, guardedSet);
+        }
+
+        private Expression? BuildSubstituteStatement(ParameterExpression destination, PropertyInfo destinationProperty)
+        {
+            if (!_nullSubstitutes.TryGetValue(destinationProperty.Name, out var substitute) || substitute.Value is null)
+            {
+                return null;
+            }
+
+            var substituteType = Nullable.GetUnderlyingType(substitute.MemberType) ?? substitute.MemberType;
+
+            return BuildSetStatement(
+                destination, destinationProperty, Expression.Constant(substitute.Value, substituteType));
+        }
+
+        private Expression BuildSetStatement(
+            ParameterExpression destination, PropertyInfo destinationProperty, Expression value)
+        {
+            var destinationType = destinationProperty.PropertyType;
+
+            if (RequiresRuntimeResolution(destinationType, value.Type))
+            {
+                var converter = MemberValueConverter.Create(destinationProperty, value.Type, typeof(TDestination).Name);
+                var memberMapper = new MemberMapper(_mapper, destinationProperty, converter);
+
+                var mappedValue = Expression.Call(
+                    Expression.Constant(memberMapper),
+                    MemberMapper.MapMethod,
+                    Expression.Convert(value, typeof(object)));
+
+                return SetMember(destination, destinationProperty, Expression.Convert(mappedValue, destinationType));
+            }
+
+            var convertedValue = ValueConversion.TryConvert(value, destinationType);
+
+            if (convertedValue is null)
+            {
+                return Expression.Throw(Expression.New(
+                    MemberValueConverter.InvalidOperationExceptionConstructor,
+                    Expression.Constant(MemberValueConverter.UnconvertibleMessage(
+                        typeof(TDestination).Name,
+                        destinationProperty.Name,
+                        (Nullable.GetUnderlyingType(value.Type) ?? value.Type).Name,
+                        (Nullable.GetUnderlyingType(destinationType) ?? destinationType).Name))));
+            }
+
+            return SetMember(destination, destinationProperty, convertedValue);
+        }
+
+        private static bool RequiresRuntimeResolution(Type destinationType, Type valueType)
+        {
+            if (destinationType.GetConstructor(Type.EmptyTypes) is not null ||
+                CollectionMapper.IsCollectionDestination(destinationType))
+            {
+                return true;
+            }
+
+            return !valueType.IsValueType && !valueType.IsSealed;
+        }
+
+        private static Expression SetMember(
+            ParameterExpression destination, PropertyInfo destinationProperty, Expression value)
+        {
+            return Expression.Call(destination, destinationProperty.GetSetMethod(true)!, value);
+        }
+
+        private static Expression? BuildNotNullTest(Expression value)
+        {
+            if (Nullable.GetUnderlyingType(value.Type) is not null)
+            {
+                return Expression.Property(value, "HasValue");
+            }
+
+            if (value.Type.IsValueType)
+            {
+                return null;
+            }
+
+            return Expression.ReferenceNotEqual(value, Expression.Constant(null, value.Type));
+        }
+
+        private static PropertyInfo? FindConventionSource(PropertyInfo[] sourceProperties, string destinationName)
+        {
+            foreach (var sourceProperty in sourceProperties)
+            {
+                if (sourceProperty.Name.Equals(destinationName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return sourceProperty;
+                }
+            }
+
+            return null;
         }
 
         internal HashSet<string> GetIgnoredMembers() => _ignoredMembers;
-        internal Dictionary<string, Func<TSource, object?>> GetExplicitMappings() => _memberMappings;
+
+        internal bool IsExplicitlyMapped(string destinationName) => _memberMappings.ContainsKey(destinationName);
 
         internal IReadOnlyList<(PropertyInfo DestProp, PropertyInfo? SourceProp, bool IsExplicit)> GetMemberTypeChecks()
         {
@@ -266,133 +316,17 @@ namespace MapFlux
             return result;
         }
 
-        private sealed class MappingPlanEntry
+        private sealed class NullSubstituteValue
         {
-            public PropertyInfo DestProp { get; }
-            public Func<TSource, object?>? ExplicitMapper { get; }
-            public Func<object, object?>? ConventionGetter { get; }
-            public Action<object, object> Setter { get; }
-            public object? NullSubstitute { get; }
-            public bool HasNullSub { get; }
-            public MemberValueConverter? Converter { get; }
-
-            public MappingPlanEntry(
-                PropertyInfo destProp,
-                Func<TSource, object?>? explicitMapper,
-                Func<object, object?>? conventionGetter,
-                Action<object, object> setter,
-                object? nullSubstitute,
-                bool hasNullSub,
-                MemberValueConverter? converter)
+            internal NullSubstituteValue(object? value, Type memberType)
             {
-                Converter = converter;
-                DestProp = destProp;
-                ExplicitMapper = explicitMapper;
-                ConventionGetter = conventionGetter;
-                Setter = setter;
-                NullSubstitute = nullSubstitute;
-                HasNullSub = hasNullSub;
-            }
-        }
-
-        private sealed class MemberValueConverter
-        {
-            private static readonly Func<object, object> _passThrough = value => value;
-
-            private readonly ConcurrentDictionary<Type, Func<object, object>?> _runtimeConverters = new();
-            private readonly Type _destinationType;
-            private readonly Type _declaredSourceType;
-            private readonly Func<object, object>? _declaredConverter;
-            private readonly string _memberName;
-
-            private MemberValueConverter(
-                Type destinationType,
-                Type declaredSourceType,
-                Func<object, object>? declaredConverter,
-                string memberName)
-            {
-                _destinationType = destinationType;
-                _declaredSourceType = declaredSourceType;
-                _declaredConverter = declaredConverter;
-                _memberName = memberName;
+                Value = value;
+                MemberType = memberType;
             }
 
-            public static MemberValueConverter? Create(PropertyInfo destinationProperty, Type sourceType)
-            {
-                var destinationType = Nullable.GetUnderlyingType(destinationProperty.PropertyType)
-                    ?? destinationProperty.PropertyType;
-                var declaredSourceType = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
+            internal object? Value { get; }
 
-                if (destinationType.IsAssignableFrom(declaredSourceType))
-                {
-                    return null;
-                }
-
-                return new MemberValueConverter(
-                    destinationType,
-                    declaredSourceType,
-                    CreateConverter(declaredSourceType, destinationType),
-                    destinationProperty.Name);
-            }
-
-            public object Convert(object value)
-            {
-                var valueType = value.GetType();
-
-                if (valueType == _declaredSourceType)
-                {
-                    return _declaredConverter is null
-                        ? throw UnconvertibleValue(valueType)
-                        : _declaredConverter(value);
-                }
-
-                var runtimeConverter = _runtimeConverters.GetOrAdd(valueType, type => _destinationType.IsAssignableFrom(type)
-                    ? _passThrough
-                    : CreateConverter(type, _destinationType));
-
-                return runtimeConverter is null
-                    ? throw UnconvertibleValue(valueType)
-                    : runtimeConverter(value);
-            }
-
-            private InvalidOperationException UnconvertibleValue(Type valueType)
-            {
-                return new InvalidOperationException(
-                    $"Cannot map {typeof(TDestination).Name}.{_memberName}: " +
-                    $"no conversion from {valueType.Name} to {_destinationType.Name} is available. " +
-                    $"Register a map for that type pair with CreateMap, or use ForMember with MapFrom " +
-                    $"to supply a {_destinationType.Name} value.");
-            }
-
-            private static Func<object, object>? CreateConverter(Type sourceType, Type destinationType)
-            {
-                if (!IsNumericOrEnum(sourceType) || !IsNumericOrEnum(destinationType))
-                {
-                    return null;
-                }
-
-                var valueParameter = Expression.Parameter(typeof(object), "value");
-                Expression body = Expression.Convert(valueParameter, sourceType);
-
-                if (sourceType.IsEnum)
-                {
-                    body = Expression.Convert(body, Enum.GetUnderlyingType(sourceType));
-                }
-
-                body = Expression.Convert(body, destinationType.IsEnum
-                    ? Enum.GetUnderlyingType(destinationType)
-                    : destinationType);
-
-                if (destinationType.IsEnum)
-                {
-                    body = Expression.Convert(body, destinationType);
-                }
-
-                return Expression.Lambda<Func<object, object>>(
-                    Expression.Convert(body, typeof(object)), valueParameter).Compile();
-            }
-
-            private static bool IsNumericOrEnum(Type type) => TypeCompatibility.IsNumericOrEnum(type);
+            internal Type MemberType { get; }
         }
     }
 }

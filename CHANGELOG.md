@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `Mapper.Map` is considerably faster and allocates far less. A mapping is now compiled into a single typed delegate per source/destination pair: a member that needs no nested or element map is read, converted and assigned by typed code instead of being boxed into `object` and written through a reflection-shaped setter, and the nested or element map of a member that needs one is resolved the first time that member is mapped instead of on every call. Measured over 200 000 mappings: an object graph with one `int` and one `string` member, one nested object and a two-element list took 2,06 µs and 576 bytes per mapping before and 0,38 µs and 264 bytes after; an object with ten scalar members took 0,23 µs and 232 bytes before and 0,08 µs and 88 bytes after — the same allocation as hand-written mapping code. Behaviour, results and error messages are unchanged, including a nested or element map registered after the map that uses it.
+- The package description no longer calls the library "high-performance": it describes the compiled mapping plans instead, which is what the measurements above support.
+
 - `ModelMapper.Map` is considerably faster and allocates far less. The member plan for a source/target type pair — the `[PropertyMapping]` attributes, the matched target property, and the accessors — is now built once per pair and reused, and a nested member or collection element is mapped through a cached delegate instead of a reflective call built on every mapping. Measured on the same object graph over 200 000 mappings: 5,50 µs and 1921 bytes per mapping before, 1,93 µs and 480 bytes after (0,40 µs once the code is fully warmed up). Behaviour, results and error messages are unchanged.
 
 ### Fixed

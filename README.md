@@ -12,7 +12,7 @@ MapFlux is a .NET object-to-object mapping library that gives you **two complete
 
 MapFlux contains two independent mapping engines:
 
-**Profile-based Mapper** -- When you call `CreateMap<TProfile>()`, each mapping configuration is analyzed at setup time. The engine uses expression trees to build a mapping plan and compiles it into a cached delegate. Properties are matched by convention (case-insensitive name lookup) unless overridden with `ForMember`. At runtime, the compiled delegate executes directly, eliminating per-call reflection overhead. Nested objects and collections are resolved by looking up registered mappings from the same cache.
+**Profile-based Mapper** -- When you call `CreateMap<TProfile>()`, each mapping configuration is analyzed at setup time. The engine uses expression trees to build one typed mapping plan per source/destination pair and compiles it into a cached delegate. Properties are matched by convention (case-insensitive name lookup) unless overridden with `ForMember`. At runtime the compiled delegate executes directly, eliminating per-call reflection overhead: a member that needs no nested or element map is read, converted and assigned by typed code, without boxing its value. For a member that does need one, the nested or element map is looked up the first time that member is mapped and reused afterwards, so a map registered later than the map using it still takes effect.
 
 **ModelMapper** -- A static entry point that requires no configuration. It reflects on source and target types, matches properties by name or `[PropertyMapping]` attribute, and recursively maps complex types and collections. The member plan for a source/target type pair -- the attributes, the matched target property and the compiled property accessors -- is built on first use and cached, and a nested member or collection element is mapped through a cached delegate, so repeated mappings of the same pair do not pay for that reflection again. Ideal for quick transformations where you want to avoid setting up profiles.
 
@@ -21,7 +21,7 @@ MapFlux contains two independent mapping engines:
 ## Features
 
 - **Dual Mapping Architecture** -- Two independent mapping subsystems in a single library. Profile-based for explicit control, ModelMapper for convention-based instant mapping.
-- **Expression-Compiled Mappings** -- Profile-based mapper builds expression trees at configuration time and compiles them into cached delegates, removing reflection from the hot path.
+- **Expression-Compiled Mappings** -- Profile-based mapper builds expression trees at configuration time and compiles them into one cached typed delegate per mapping, removing reflection and member-value boxing from the hot path.
 - **Attribute-based Mapping** -- Use `[PropertyMapping]` on properties to override names. ModelMapper picks them up automatically with no configuration.
 - **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.

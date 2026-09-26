@@ -15,6 +15,10 @@ namespace MapFlux
 
         private int _maxDepth = MappingDepth.DefaultLimit;
 
+        private int _registrationVersion;
+
+        internal int RegistrationVersion => Volatile.Read(ref _registrationVersion);
+
         public int MaxDepth
         {
             get => _maxDepth;
@@ -77,6 +81,8 @@ namespace MapFlux
             {
                 StrictValidateMapping<TSource, TDestination>(mappingConfig, errors);
             };
+
+            Interlocked.Increment(ref _registrationVersion);
         }
 
         internal void AddReverseMapping<TSource, TDestination>()
@@ -101,6 +107,8 @@ namespace MapFlux
             {
                 StrictValidateMapping<TSource, TDestination>(mappingConfig, errors);
             };
+
+            Interlocked.Increment(ref _registrationVersion);
         }
 
         public void AssertConfigurationIsValid()
@@ -207,14 +215,13 @@ namespace MapFlux
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             var ignoredMembers = mappingConfig.GetIgnoredMembers();
-            var explicitMappings = mappingConfig.GetExplicitMappings();
             var unmappedProperties = new List<string>();
 
             foreach (var destProp in destProperties)
             {
                 if (ignoredMembers.Contains(destProp.Name)) continue;
 
-                if (explicitMappings.ContainsKey(destProp.Name)) continue;
+                if (mappingConfig.IsExplicitlyMapped(destProp.Name)) continue;
 
                 var conventionMatch = sourceProperties.Any(p =>
                     p.Name.Equals(destProp.Name, StringComparison.OrdinalIgnoreCase));
