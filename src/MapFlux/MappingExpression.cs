@@ -119,6 +119,26 @@ namespace MapFlux
             };
         }
 
+        public Func<object, object, object> GetMappingIntoFunction()
+        {
+            var plan = BuildIntoPlan();
+            var mapper = _mapper;
+
+            return (source, destination) =>
+            {
+                MappingDepth.Enter(mapper.MaxDepth, typeof(TSource), typeof(TDestination));
+
+                try
+                {
+                    return plan((TSource)source, (TDestination)destination)!;
+                }
+                finally
+                {
+                    MappingDepth.Exit();
+                }
+            };
+        }
+
         private Func<TSource, TDestination> BuildPlan()
         {
             var sourceParameter = Expression.Parameter(typeof(TSource), "source");
@@ -129,8 +149,32 @@ namespace MapFlux
                 Expression.Assign(destination, Expression.New(typeof(TDestination)))
             };
 
+            statements.AddRange(BuildMemberStatements(sourceParameter, destination));
+            statements.Add(destination);
+
+            return Expression.Lambda<Func<TSource, TDestination>>(
+                Expression.Block(new[] { destination }, statements), sourceParameter).Compile();
+        }
+
+        private Func<TSource, TDestination, TDestination> BuildIntoPlan()
+        {
+            var sourceParameter = Expression.Parameter(typeof(TSource), "source");
+            var destinationParameter = Expression.Parameter(typeof(TDestination), "destination");
+
+            var statements = BuildMemberStatements(sourceParameter, destinationParameter);
+            statements.Add(destinationParameter);
+
+            return Expression.Lambda<Func<TSource, TDestination, TDestination>>(
+                Expression.Block(statements), sourceParameter, destinationParameter).Compile();
+        }
+
+        private List<Expression> BuildMemberStatements(
+            ParameterExpression sourceParameter, ParameterExpression destination)
+        {
             var sourceProperties = typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance);
             var destinationProperties = typeof(TDestination).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            var statements = new List<Expression>();
 
             foreach (var destinationProperty in destinationProperties)
             {
@@ -145,10 +189,7 @@ namespace MapFlux
                 }
             }
 
-            statements.Add(destination);
-
-            return Expression.Lambda<Func<TSource, TDestination>>(
-                Expression.Block(new[] { destination }, statements), sourceParameter).Compile();
+            return statements;
         }
 
         private Expression? BuildMemberStatement(

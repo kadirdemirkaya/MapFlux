@@ -3,9 +3,11 @@ using System.Reflection;
 
 namespace MapFlux
 {
-    public class Mapper : IMapper
+    public class Mapper : IMapper, IExistingDestinationMapper
     {
         internal readonly ConcurrentDictionary<(Type Source, Type Destination), Func<object, object>> _mappings = new();
+
+        private readonly ConcurrentDictionary<(Type Source, Type Destination), Lazy<Func<object, object, object>>> _intoMappings = new();
 
         private readonly ConcurrentDictionary<(Type Source, Type Destination), Action> _validations = new();
 
@@ -62,6 +64,50 @@ namespace MapFlux
                 $"Mapping from {sourceType.Name} to {destinationType.Name} is not defined.");
         }
 
+        /// <summary>
+        /// Maps <paramref name="source"/> onto <paramref name="destination"/> and returns that same
+        /// instance. The destination is never recreated: ignored members, members the source has no
+        /// counterpart for, and members whose source value is <see langword="null"/> keep the value
+        /// they already hold. A nested or collection member that is mapped is replaced by a newly
+        /// built instance rather than merged into the existing one.
+        /// </summary>
+        /// <param name="source">The source object. When <see langword="null"/>, the destination is returned untouched.</param>
+        /// <param name="destination">The destination instance to map onto.</param>
+        public TDestination Map<TSource, TDestination>(TSource source, TDestination destination)
+        {
+            var sourceType = typeof(TSource);
+            var destinationType = typeof(TDestination);
+
+            if (destination is null)
+            {
+                throw new ArgumentNullException(
+                    nameof(destination),
+                    $"Mapping from {sourceType.Name} onto an existing {destinationType.Name} requires a destination " +
+                    $"instance. Use Map<{sourceType.Name}, {destinationType.Name}>(source) to build a new one.");
+            }
+
+            if (source is null)
+            {
+                return destination;
+            }
+
+            if (_intoMappings.TryGetValue((sourceType, destinationType), out var mappingFunction))
+            {
+                return (TDestination)mappingFunction.Value(source!, destination);
+            }
+
+            if (CollectionMapper.IsCollectionDestination(destinationType))
+            {
+                throw new InvalidOperationException(
+                    $"Mapping onto an existing {CollectionMapper.Describe(destinationType)} is not supported. " +
+                    $"Use Map<{CollectionMapper.Describe(sourceType)}, {CollectionMapper.Describe(destinationType)}>(source) " +
+                    "to build a new collection.");
+            }
+
+            throw new InvalidOperationException(
+                $"Mapping from {sourceType.Name} to {destinationType.Name} is not defined.");
+        }
+
         internal void AddMapping<TSource, TDestination>(Action<IMappingExpression<TSource, TDestination>> mappingExpression)
         {
             var mappingConfig = new MappingExpression<TSource, TDestination>(this);
@@ -70,6 +116,7 @@ namespace MapFlux
             var sourceType = typeof(TSource);
             var destinationType = typeof(TDestination);
             _mappings[(sourceType, destinationType)] = mappingConfig.GetMappingFunction();
+            _intoMappings[(sourceType, destinationType)] = CreateIntoMapping(mappingConfig);
             _explicitMappings[(sourceType, destinationType)] = true;
 
             _validations[(sourceType, destinationType)] = () =>
@@ -97,6 +144,7 @@ namespace MapFlux
 
             var mappingConfig = new MappingExpression<TSource, TDestination>(this);
             _mappings[(sourceType, destinationType)] = mappingConfig.GetMappingFunction();
+            _intoMappings[(sourceType, destinationType)] = CreateIntoMapping(mappingConfig);
 
             _validations[(sourceType, destinationType)] = () =>
             {
@@ -109,6 +157,13 @@ namespace MapFlux
             };
 
             Interlocked.Increment(ref _registrationVersion);
+        }
+
+        private static Lazy<Func<object, object, object>> CreateIntoMapping<TSource, TDestination>(
+            MappingExpression<TSource, TDestination> mappingConfig)
+        {
+            return new Lazy<Func<object, object, object>>(
+                mappingConfig.GetMappingIntoFunction, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
         public void AssertConfigurationIsValid()

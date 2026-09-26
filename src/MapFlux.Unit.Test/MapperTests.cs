@@ -1200,6 +1200,248 @@ namespace MapFlux.Unit.Test
             Assert.Equal("Second", result[1].ElementName);
         }
 
+        [Fact]
+        public void MapInto_ExistingDestination_ShouldFillSameInstance()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource { Id = 7, Name = "Mapped" };
+            var destination = new MapIntoTarget { Id = 1, Name = "Old" };
+
+            // Act
+            var result = _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+
+            // Assert
+            Assert.Same(destination, result);
+            Assert.Equal(7, destination.Id);
+            Assert.Equal("Mapped", destination.Name);
+        }
+
+        [Fact]
+        public void MapInto_IgnoredMember_ShouldKeepExistingValue()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource { Id = 7, Name = "Mapped", Secret = "FromSource" };
+            var destination = new MapIntoTarget { Secret = "Kept" };
+
+            // Act
+            _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+
+            // Assert
+            Assert.Equal("Kept", destination.Secret);
+            Assert.Equal(7, destination.Id);
+        }
+
+        [Fact]
+        public void MapInto_MemberWithoutSourceCounterpart_ShouldKeepExistingValue()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource { Id = 7, Name = "Mapped" };
+            var destination = new MapIntoTarget { Untouched = "Kept" };
+
+            // Act
+            _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+
+            // Assert
+            Assert.Equal("Kept", destination.Untouched);
+        }
+
+        [Fact]
+        public void MapInto_NullSourceMembers_ShouldKeepExistingValues()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource { Id = 7, Name = null, Child = null, Items = null };
+            var existingItems = new List<ElementTarget> { new ElementTarget { ElementId = 99 } };
+            var existingChild = new MapIntoChildTarget { Note = "KeptNote" };
+            var destination = new MapIntoTarget
+            {
+                Name = "KeptName",
+                Child = existingChild,
+                Items = existingItems
+            };
+
+            // Act
+            _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+
+            // Assert
+            Assert.Equal(7, destination.Id);
+            Assert.Equal("KeptName", destination.Name);
+            Assert.Same(existingChild, destination.Child);
+            Assert.Same(existingItems, destination.Items);
+        }
+
+        [Fact]
+        public void MapInto_NestedMember_ShouldReplaceExistingInstance()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource
+            {
+                Id = 7,
+                Child = new MapIntoChildSource { Note = "New" }
+            };
+            var existingChild = new MapIntoChildTarget { Note = "Old", Version = 4 };
+            var destination = new MapIntoTarget { Child = existingChild };
+
+            // Act
+            _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+
+            // Assert
+            Assert.NotSame(existingChild, destination.Child);
+            Assert.Equal("New", destination.Child.Note);
+            Assert.Equal(0, destination.Child.Version);
+            Assert.Equal(4, existingChild.Version);
+        }
+
+        [Fact]
+        public void MapInto_CollectionMember_ShouldReplaceExistingCollection()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource
+            {
+                Id = 7,
+                Items = new List<ElementSource>
+                {
+                    new ElementSource { Id = 1, Name = "First" },
+                    new ElementSource { Id = 2, Name = "Second" }
+                }
+            };
+            var existingItems = new List<ElementTarget> { new ElementTarget { ElementId = 99 } };
+            var destination = new MapIntoTarget { Items = existingItems };
+
+            // Act
+            _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+
+            // Assert
+            Assert.NotSame(existingItems, destination.Items);
+            Assert.Equal(2, destination.Items.Count);
+            Assert.Equal(1, destination.Items[0].ElementId);
+            Assert.Equal("Second", destination.Items[1].ElementName);
+            Assert.Equal(99, Assert.Single(existingItems).ElementId);
+        }
+
+        [Fact]
+        public void MapInto_ReverseMappedPair_ShouldFillExistingDestination()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoChildTarget { Note = "Reversed", Version = 3 };
+            var destination = new MapIntoChildSource { Note = "Old", Version = 1 };
+
+            // Act
+            var result = _mapper.Map<MapIntoChildTarget, MapIntoChildSource>(source, destination);
+
+            // Assert
+            Assert.Same(destination, result);
+            Assert.Equal("Reversed", destination.Note);
+            Assert.Equal(3, destination.Version);
+        }
+
+        [Fact]
+        public void MapInto_ThroughExistingDestinationMapperInterface_ShouldFillDestination()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            IExistingDestinationMapper mapper = _mapper;
+            var destination = new MapIntoTarget { Untouched = "Kept" };
+
+            // Act
+            var result = mapper.Map(new MapIntoSource { Id = 7, Name = "Mapped" }, destination);
+
+            // Assert
+            Assert.Same(destination, result);
+            Assert.Equal(7, result.Id);
+            Assert.Equal("Mapped", result.Name);
+            Assert.Equal("Kept", result.Untouched);
+        }
+
+        [Fact]
+        public void MapInto_NullSource_ShouldReturnDestinationUnchanged()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var destination = new MapIntoTarget { Id = 5, Name = "Kept" };
+
+            // Act
+            var result = _mapper.Map<MapIntoSource, MapIntoTarget>(null, destination);
+
+            // Assert
+            Assert.Same(destination, result);
+            Assert.Equal(5, destination.Id);
+            Assert.Equal("Kept", destination.Name);
+        }
+
+        [Fact]
+        public void MapInto_NullDestination_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource { Id = 7 };
+
+            // Act
+            var exception = Assert.Throws<ArgumentNullException>(
+                () => _mapper.Map<MapIntoSource, MapIntoTarget>(source, null));
+
+            // Assert
+            Assert.Equal("destination", exception.ParamName);
+            Assert.Contains("requires a destination instance", exception.Message);
+        }
+
+        [Fact]
+        public void MapInto_UndefinedMapping_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var source = new MapIntoSource { Id = 7 };
+
+            // Act
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<MapIntoSource, MapIntoTarget>(source, new MapIntoTarget()));
+
+            // Assert
+            Assert.Equal("Mapping from MapIntoSource to MapIntoTarget is not defined.", exception.Message);
+        }
+
+        [Fact]
+        public void MapInto_CollectionDestination_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new List<ElementSource> { new ElementSource { Id = 1, Name = "First" } };
+            var destination = new List<ElementTarget>();
+
+            // Act
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<List<ElementSource>, List<ElementTarget>>(source, destination));
+
+            // Assert
+            Assert.Contains("Mapping onto an existing List<ElementTarget> is not supported", exception.Message);
+            Assert.Empty(destination);
+        }
+
+        [Fact]
+        public void MapInto_AfterSingleArgumentMap_ShouldKeepBuildingNewInstances()
+        {
+            // Arrange
+            _mapper.CreateMap<MapIntoProfile>();
+            var source = new MapIntoSource { Id = 7, Name = "Mapped", Secret = "FromSource" };
+            var destination = new MapIntoTarget { Untouched = "Kept" };
+
+            // Act
+            _mapper.Map<MapIntoSource, MapIntoTarget>(source, destination);
+            var created = _mapper.Map<MapIntoSource, MapIntoTarget>(source);
+
+            // Assert
+            Assert.NotSame(destination, created);
+            Assert.Equal(7, created.Id);
+            Assert.Equal("Mapped", created.Name);
+            Assert.Null(created.Untouched);
+            Assert.Null(created.Secret);
+        }
+
         private static CycleNodeSource BuildChain(int length)
         {
             var head = new CycleNodeSource { Id = 0 };
