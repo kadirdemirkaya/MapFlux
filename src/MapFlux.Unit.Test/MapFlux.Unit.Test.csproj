@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MapFlux\MapFlux.csproj" />
+    <ProjectReference Include="..\MapFlux.Console.Test\MapFlux.Console.Test.csproj" />
   </ItemGroup>
 
 </Project>

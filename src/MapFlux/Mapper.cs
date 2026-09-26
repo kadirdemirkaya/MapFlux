@@ -33,6 +33,30 @@ namespace MapFlux
             profile.Configure(new MapperConfigurationExpression(this));
         }
 
+        public void CreateMapsFromAssemblies(params Assembly[] assemblies)
+        {
+            if (assemblies is null || assemblies.Length == 0)
+            {
+                throw new ArgumentException("At least one assembly must be provided.", nameof(assemblies));
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                foreach (var profileType in assembly.GetTypes().Where(IsConcreteProfileWithParameterlessConstructor))
+                {
+                    var profile = (Profile)Activator.CreateInstance(profileType)!;
+                    profile.Configure(new MapperConfigurationExpression(this));
+                }
+            }
+        }
+
+        private static bool IsConcreteProfileWithParameterlessConstructor(Type type)
+        {
+            return typeof(Profile).IsAssignableFrom(type)
+                && !type.IsAbstract
+                && type.GetConstructor(Type.EmptyTypes) is not null;
+        }
+
         public TDestination Map<TSource, TDestination>(TSource source)
         {
             if (source is null)
