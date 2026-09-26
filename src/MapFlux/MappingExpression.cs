@@ -9,7 +9,7 @@ namespace MapFlux
     {
         private static readonly Func<TDestination> _createInstance;
         private static readonly ConcurrentDictionary<string, Action<object, object>> _propertySetters = new();
-        private static readonly ConcurrentDictionary<string, Func<object, object>> _propertyGetters = new();
+        private static readonly ConcurrentDictionary<string, Func<object, object?>> _propertyGetters = new();
 
         static MappingExpression()
         {
@@ -17,9 +17,9 @@ namespace MapFlux
             _createInstance = Expression.Lambda<Func<TDestination>>(newExpr).Compile();
         }
 
-        private readonly Dictionary<string, Func<TSource, object>> _memberMappings = new();
+        private readonly Dictionary<string, Func<TSource, object?>> _memberMappings = new();
         private readonly HashSet<string> _ignoredMembers = new();
-        private readonly Dictionary<string, object> _nullSubstitutes = new();
+        private readonly Dictionary<string, object?> _nullSubstitutes = new();
 
         private readonly Mapper _mapper;
 
@@ -66,12 +66,12 @@ namespace MapFlux
                 var valueParam = Expression.Parameter(typeof(object), "value");
                 var castInstance = Expression.Convert(instanceParam, typeof(TDestination));
                 var castValue = Expression.Convert(valueParam, prop.PropertyType);
-                var setProp = Expression.Call(castInstance, prop.GetSetMethod(true), castValue);
+                var setProp = Expression.Call(castInstance, prop.GetSetMethod(true)!, castValue);
                 return Expression.Lambda<Action<object, object>>(setProp, instanceParam, valueParam).Compile();
             });
         }
 
-        private static Func<object, object> GetSourcePropertyGetter(PropertyInfo prop)
+        private static Func<object, object?> GetSourcePropertyGetter(PropertyInfo prop)
         {
             return _propertyGetters.GetOrAdd(prop.Name, _ =>
             {
@@ -79,7 +79,7 @@ namespace MapFlux
                 var castInstance = Expression.Convert(instanceParam, typeof(TSource));
                 var getProp = Expression.Property(castInstance, prop);
                 var boxed = Expression.Convert(getProp, typeof(object));
-                return Expression.Lambda<Func<object, object>>(boxed, instanceParam).Compile();
+                return Expression.Lambda<Func<object, object?>>(boxed, instanceParam).Compile();
             });
         }
 
@@ -122,15 +122,16 @@ namespace MapFlux
 
                 foreach (var plan in mappingPlan)
                 {
-                    object sourceValue;
+                    object? sourceValue;
 
-                    if (plan.ExplicitMapper != null)
+                    var explicitMapper = plan.ExplicitMapper;
+                    if (explicitMapper != null)
                     {
-                        sourceValue = plan.ExplicitMapper((TSource)source);
+                        sourceValue = explicitMapper((TSource)source);
                     }
                     else
                     {
-                        sourceValue = plan.ConventionGetter(source);
+                        sourceValue = plan.ConventionGetter!(source);
                     }
 
                     if (sourceValue == null && plan.HasNullSub)
@@ -153,12 +154,12 @@ namespace MapFlux
                         if (destElemType != null && sourceElemType != null &&
                             _mapper._mappings.TryGetValue((sourceElemType, destElemType), out var elemMapper))
                         {
-                            var destList = (IList)Activator.CreateInstance(destPropType);
+                            var destList = (IList)Activator.CreateInstance(destPropType)!;
                             foreach (var item in sourceList)
                             {
                                 destList.Add(elemMapper(item));
                             }
-                            plan.Setter(destination, destList);
+                            plan.Setter(destination!, destList);
                             handled = true;
                         }
                     }
@@ -167,37 +168,37 @@ namespace MapFlux
                     {
                         if (_mapper._mappings.TryGetValue((sourceValue.GetType(), destPropType), out var nestedMappingFunc))
                         {
-                            plan.Setter(destination, nestedMappingFunc(sourceValue));
+                            plan.Setter(destination!, nestedMappingFunc(sourceValue));
                         }
                         else
                         {
-                            plan.Setter(destination, sourceValue);
+                            plan.Setter(destination!, sourceValue);
                         }
                     }
                 }
 
-                return destination;
+                return destination!;
             };
         }
 
         internal HashSet<string> GetIgnoredMembers() => _ignoredMembers;
-        internal Dictionary<string, Func<TSource, object>> GetExplicitMappings() => _memberMappings;
+        internal Dictionary<string, Func<TSource, object?>> GetExplicitMappings() => _memberMappings;
 
         private sealed class MappingPlanEntry
         {
             public PropertyInfo DestProp { get; }
-            public Func<TSource, object> ExplicitMapper { get; }
-            public Func<object, object> ConventionGetter { get; }
+            public Func<TSource, object?>? ExplicitMapper { get; }
+            public Func<object, object?>? ConventionGetter { get; }
             public Action<object, object> Setter { get; }
-            public object NullSubstitute { get; }
+            public object? NullSubstitute { get; }
             public bool HasNullSub { get; }
 
             public MappingPlanEntry(
                 PropertyInfo destProp,
-                Func<TSource, object> explicitMapper,
-                Func<object, object> conventionGetter,
+                Func<TSource, object?>? explicitMapper,
+                Func<object, object?>? conventionGetter,
                 Action<object, object> setter,
-                object nullSubstitute,
+                object? nullSubstitute,
                 bool hasNullSub)
             {
                 DestProp = destProp;

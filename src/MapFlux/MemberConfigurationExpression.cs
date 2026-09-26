@@ -4,9 +4,9 @@ namespace MapFlux
 {
     public class MemberConfigurationExpression<TSource, TDestination, TMember> : IMemberConfigurationExpression<TSource, TDestination, TMember>
     {
-        public Func<TSource, TMember> SourceFunc { get; private set; }
+        public Func<TSource, TMember>? SourceFunc { get; private set; }
         public bool IsIgnored { get; private set; }
-        public TMember DefaultValue { get; private set; }
+        public TMember DefaultValue { get; private set; } = default!;
         public bool HasDefaultValue { get; private set; }
 
         public void MapFrom(Expression<Func<TSource, TMember>> sourceMember)
@@ -25,14 +25,15 @@ namespace MapFlux
             HasDefaultValue = true;
         }
 
-        public Func<TSource, object> ToObjectFunc()
+        public Func<TSource, object?> ToObjectFunc()
         {
-            if (SourceFunc == null)
+            var sourceFunc = SourceFunc;
+            if (sourceFunc == null)
                 throw new InvalidOperationException(
                     "MapFrom must be called before mapping can be applied. " +
                     "Use opt.MapFrom(...) or opt.Ignore() in your ForMember call.");
 
-            return source => SourceFunc(source);
+            return source => sourceFunc(source);
         }
     }
 }

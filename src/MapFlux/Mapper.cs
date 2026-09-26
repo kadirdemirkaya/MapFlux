@@ -29,8 +29,8 @@ namespace MapFlux
 
                 if (_mappings.TryGetValue((sourceElementType, destElementType), out var elementMapper))
                 {
-                    var sourceList = (IList)source;
-                    var destList = (IList)Activator.CreateInstance(destinationType);
+                    var sourceList = (IList)source!;
+                    var destList = (IList)Activator.CreateInstance(destinationType)!;
 
                     foreach (var item in sourceList)
                     {
@@ -46,7 +46,7 @@ namespace MapFlux
 
             if (_mappings.TryGetValue((sourceType, destinationType), out var mappingFunction))
             {
-                return (TDestination)mappingFunction(source);
+                return (TDestination)mappingFunction(source!);
             }
 
             throw new InvalidOperationException(
