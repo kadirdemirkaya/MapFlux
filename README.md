@@ -50,6 +50,7 @@ dotnet add package MapFlux
 - .NET 7.0
 - .NET 8.0
 - .NET 9.0
+- .NET 10.0
 
 ---
 
