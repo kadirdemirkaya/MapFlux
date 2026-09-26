@@ -26,6 +26,7 @@ MapFlux contains two independent mapping engines:
 - **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
 - **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element. ModelMapper accepts the same member shapes plus `Dictionary<,>`, with no configuration.
+- **Mapping onto an Existing Object** -- `Map(source, destination)` updates an instance you already own instead of creating one; ignored members, members without a source counterpart and members whose source value is `null` keep the value they hold.
 - **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
 - **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
@@ -246,6 +247,41 @@ The element is resolved in this order:
 
 A `null` collection leaves the destination member `null` and returns `null` from a top-level `Map`; a `null` element stays `null` in the result. A `string` is never treated as a collection of characters.
 
+### Mapping onto an Existing Object
+
+`Map(source, destination)` maps onto an instance you already have -- an entity loaded from a database,
+a view model bound to a form -- instead of building a new one. It returns that same instance:
+
+```csharp
+var entity = repository.Get(id);                 // tracked, has values you must not lose
+
+mapper.Map(updateRequest, entity);               // same instance, updated in place
+```
+
+Only members the mapping actually writes are touched. Everything else the destination already holds
+survives the call:
+
+| Destination member | Result |
+|--------------------|--------|
+| Mapped from a non-`null` source value | Overwritten with the mapped value |
+| `Ignore()`d | Kept as it is |
+| No matching source member | Kept as it is |
+| Source value is `null` (and no `NullSubstitute`) | Kept as it is |
+| A nested object or collection that is mapped | Replaced by a newly built instance, not merged |
+
+`source` being `null` returns the destination untouched; a `null` destination throws an
+`ArgumentNullException`, because there is nothing to map onto. The overload maps onto a single object:
+for a collection, use `Map<TSource, TDestination>(source)` to build a new one.
+
+The same overload is available through the `IExistingDestinationMapper` interface, so it can be
+injected without changing `IMapper`:
+
+```csharp
+services.AddSingleton<Mapper>();
+services.AddSingleton<IMapper>(sp => sp.GetRequiredService<Mapper>());
+services.AddSingleton<IExistingDestinationMapper>(sp => sp.GetRequiredService<Mapper>());
+```
+
 ### Collection and Dictionary Members (ModelMapper)
 
 `ModelMapper` maps a collection member without any configuration. The source member may be any
@@ -333,7 +369,8 @@ config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore(
 | Method | Description |
 |--------|-------------|
 | `CreateMap<TProfile>()` | Registers a mapping profile (expression-compiled) |
-| `Map<TSource, TDestination>()` | Maps an object to the destination type |
+| `Map<TSource, TDestination>(TSource source)` | Maps an object to the destination type |
+| `Map<TSource, TDestination>(TSource source, TDestination destination)` | Maps onto an existing destination instance and returns it; ignored, unmatched and `null`-sourced members keep their current value |
 | `AssertConfigurationIsValid()` | Validates all registered mappings for unmapped destination properties |
 | `AssertConfigurationIsValid(bool strict)` | `strict: true` additionally validates nested and element maps and type compatibility |
 | `MaxDepth` | Maximum recursion depth of a single `Map` call (default `32`); a deeper or cyclic graph throws `InvalidOperationException` |
