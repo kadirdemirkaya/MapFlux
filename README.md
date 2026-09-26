@@ -27,6 +27,7 @@ MapFlux contains two independent mapping engines:
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
 - **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element. ModelMapper accepts the same member shapes plus `Dictionary<,>`, with no configuration.
 - **Mapping onto an Existing Object** -- `Map(source, destination)` updates an instance you already own instead of creating one; ignored members, members without a source counterpart and members whose source value is `null` keep the value they hold.
+- **Constructor-Based Destinations** -- A destination without a parameterless constructor, such as a positional `record`, is built through the constructor whose parameter names match its members; `ForMember` and the type conversions apply to constructor arguments too.
 - **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
 - **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
@@ -289,6 +290,44 @@ services.AddSingleton<Mapper>();
 services.AddSingleton<IMapper>(sp => sp.GetRequiredService<Mapper>());
 services.AddSingleton<IExistingDestinationMapper>(sp => sp.GetRequiredService<Mapper>());
 ```
+
+### Constructor-Based Destinations
+
+A destination type does not need a parameterless constructor. When it has none, MapFlux looks for a
+single public constructor whose parameter names all match members of the destination type
+(case-insensitive) and builds the instance through it -- which is exactly what a positional `record`
+gives you:
+
+```csharp
+public record CustomerDto(int Id, string FullName)
+{
+    public string Country { get; set; }
+}
+
+config.CreateMap<Customer, CustomerDto>(m =>
+    m.ForMember(d => d.FullName, opt => opt.MapFrom(s => s.FirstName + " " + s.LastName)));
+
+var dto = mapper.Map<Customer, CustomerDto>(customer);
+```
+
+`ForMember` configures a constructor parameter through the member that parameter is bound to:
+`MapFrom`, `NullSubstitute` and `Ignore` behave as they do for a settable member, and the numeric,
+`Nullable<T>` and enum conversions apply to constructor arguments too. A parameter whose member is
+`Ignore()`d, or whose member has no source counterpart, receives the default value of its type. A
+nested object or collection argument is mapped with the registered map for that type pair, so a
+record can hold other records. Members that are not bound to a constructor parameter -- `Country`
+above -- are assigned after construction, as before.
+
+Two destinations are rejected when `CreateMap` runs, with an `InvalidOperationException` naming the
+destination type:
+
+| Destination | Message |
+|-------------|---------|
+| No public constructor whose parameters all match members | Lists every public constructor with the parameters that have no matching member |
+| More than one constructor whose parameters match members | Lists the matching constructors, so you can see which one to keep |
+
+`ModelMapper` is unaffected: it still requires a parameterless constructor on both sides and reports
+the member and the type when one is missing.
 
 ### Collection and Dictionary Members (ModelMapper)
 

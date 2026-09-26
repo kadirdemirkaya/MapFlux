@@ -4,9 +4,9 @@ namespace MapFlux.Unit.Test.Dtos
     {
         public string Name { get; set; }
 
-        public NoParameterlessConstructorTarget(string name)
+        public NoParameterlessConstructorTarget(string unmatched)
         {
-            Name = name;
+            Name = unmatched;
         }
     }
 }
