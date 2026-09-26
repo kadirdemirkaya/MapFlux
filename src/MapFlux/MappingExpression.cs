@@ -67,8 +67,31 @@ namespace MapFlux
                 return this;
             }
 
-            _memberMappings[destinationName] = memberConfig.ToObjectFunc();
-            _memberMappingTypes[destinationName] = typeof(TMember);
+            if (memberConfig.SourceFunc != null)
+            {
+                _memberMappings[destinationName] = memberConfig.ToObjectFunc();
+                _memberMappingTypes[destinationName] = typeof(TMember);
+            }
+            else if (memberConfig.HasDefaultValue)
+            {
+                var sourceProperties = typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                var conventionSourceProp = sourceProperties.FirstOrDefault(p =>
+                    p.Name.Equals(destinationName, StringComparison.OrdinalIgnoreCase));
+
+                if (conventionSourceProp == null)
+                {
+                    throw new InvalidOperationException(
+                        $"NullSubstitute was configured for '{destinationName}' without MapFrom, but no member " +
+                        $"named '{destinationName}' was found on {typeof(TSource).Name} to match by convention. " +
+                        "Use opt.MapFrom(...) to specify the source member explicitly.");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "MapFrom must be called before mapping can be applied. " +
+                    "Use opt.MapFrom(...) or opt.Ignore() in your ForMember call.");
+            }
 
             if (memberConfig.HasDefaultValue)
             {

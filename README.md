@@ -148,6 +148,10 @@ config.CreateMap<Product, ProductDto>(m =>
 });
 ```
 
+`MapFrom` is optional: `opt.NullSubstitute(...)` alone falls back to the destination member's
+name-matched source property. If no such property exists, `CreateMap` throws describing which
+member and destination type need an explicit `MapFrom`.
+
 ### Configuration Validation
 
 Validate all mappings at startup to catch configuration errors early:
