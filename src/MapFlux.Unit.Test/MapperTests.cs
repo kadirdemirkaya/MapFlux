@@ -866,5 +866,157 @@ namespace MapFlux.Unit.Test
             Assert.Equal("A", result.Name);
             Assert.Equal(1, result.Age);
         }
+
+        [Fact]
+        public void Map_SelfReferencingSource_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            var node = new CycleNodeSource { Id = 1 };
+            node.Next = node;
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CycleNodeSource, CycleNodeTarget>(node));
+            Assert.Contains(nameof(CycleNodeSource), exception.Message);
+            Assert.Contains(nameof(CycleNodeTarget), exception.Message);
+            Assert.Contains("maximum depth of 32", exception.Message);
+            Assert.Contains("cyclic", exception.Message);
+        }
+
+        [Fact]
+        public void Map_MutuallyReferencingSources_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            var first = new CycleNodeSource { Id = 1 };
+            var second = new CycleNodeSource { Id = 2, Next = first };
+            first.Next = second;
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CycleNodeSource, CycleNodeTarget>(first));
+            Assert.Contains("maximum depth of 32", exception.Message);
+        }
+
+        [Fact]
+        public void Map_CyclicCollectionMember_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            var node = new CycleNodeSource { Id = 1 };
+            node.Children = new List<CycleNodeSource> { node };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CycleNodeSource, CycleNodeTarget>(node));
+            Assert.Contains("maximum depth of 32", exception.Message);
+        }
+
+        [Fact]
+        public void Map_AcyclicGraphWithinMaxDepth_ShouldMapEveryLevel()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            var head = BuildChain(20);
+
+            // Act
+            var result = _mapper.Map<CycleNodeSource, CycleNodeTarget>(head);
+
+            // Assert
+            var current = result;
+            for (var depth = 0; depth < 20; depth++)
+            {
+                Assert.NotNull(current);
+                Assert.Equal(depth, current.Id);
+                current = current.Next;
+            }
+            Assert.Null(current);
+        }
+
+        [Fact]
+        public void Map_AfterCycleFailure_ShouldStillMapAcyclicGraph()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            var node = new CycleNodeSource { Id = 1 };
+            node.Next = node;
+            Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CycleNodeSource, CycleNodeTarget>(node));
+
+            // Act
+            var result = _mapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(20));
+
+            // Assert
+            Assert.Equal(0, result.Id);
+            Assert.Equal(19, LastId(result));
+        }
+
+        [Fact]
+        public void MaxDepth_LoweredBelowGraphDepth_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            _mapper.MaxDepth = 2;
+
+            // Act
+            var mapped = _mapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(2));
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(3)));
+
+            // Assert
+            Assert.Equal(1, LastId(mapped));
+            Assert.Contains("maximum depth of 2", exception.Message);
+        }
+
+        [Fact]
+        public void MaxDepth_RaisedAboveDefault_ShouldMapDeeperGraph()
+        {
+            // Arrange
+            _mapper.CreateMap<CycleNodeProfile>();
+            _mapper.MaxDepth = 120;
+
+            // Act
+            var result = _mapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(100));
+
+            // Assert
+            Assert.Equal(99, LastId(result));
+        }
+
+        [Fact]
+        public void MaxDepth_DefaultAndInvalidValues()
+        {
+            // Act & Assert
+            Assert.Equal(32, _mapper.MaxDepth);
+            Assert.Throws<ArgumentOutOfRangeException>(() => _mapper.MaxDepth = 0);
+            Assert.Throws<ArgumentOutOfRangeException>(() => _mapper.MaxDepth = -1);
+            Assert.Equal(32, _mapper.MaxDepth);
+        }
+
+        private static CycleNodeSource BuildChain(int length)
+        {
+            var head = new CycleNodeSource { Id = 0 };
+            var current = head;
+
+            for (var index = 1; index < length; index++)
+            {
+                current.Next = new CycleNodeSource { Id = index };
+                current = current.Next;
+            }
+
+            return head;
+        }
+
+        private static int LastId(CycleNodeTarget head)
+        {
+            var current = head;
+
+            while (current.Next != null)
+            {
+                current = current.Next;
+            }
+
+            return current.Id;
+        }
     }
 }
