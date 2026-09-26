@@ -266,6 +266,32 @@ namespace MapFlux.Unit.Test
         }
 
         [Fact]
+        public void ForMember_NullSubstituteWithoutMapFrom_ShouldUseConventionMatchedSource()
+        {
+            // Arrange
+            _mapper.CreateMap<NullSubstituteConventionProfile>();
+            var source = new NullSubstituteSource { Id = 1, Name = null };
+
+            // Act
+            var result = _mapper.Map<NullSubstituteSource, NullSubstituteTarget>(source);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(1, result.Id);
+            Assert.Equal("Unknown", result.Name);
+        }
+
+        [Fact]
+        public void ForMember_NullSubstituteWithoutMapFromOrConventionMatch_ShouldThrow()
+        {
+            // Act & Assert
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => _mapper.CreateMap<NullSubstituteNoConventionProfile>());
+            Assert.Contains("Nickname", ex.Message);
+            Assert.Contains("MapFrom", ex.Message);
+        }
+
+        [Fact]
         public void AssertConfigurationIsValid_ShouldPassWithValidMappings()
         {
             // Arrange
