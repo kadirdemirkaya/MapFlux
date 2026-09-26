@@ -757,5 +757,32 @@ namespace MapFlux.Unit.Test
             Assert.Contains("ElementSource", exception.Message);
             Assert.Contains("SimpleTarget", exception.Message);
         }
+
+        [Fact]
+        public void CreateMap_DestinationWithoutParameterlessConstructor_ShouldThrowInvalidOperationException()
+        {
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.CreateMap<NoParameterlessConstructorProfile>());
+            Assert.Contains(nameof(NoParameterlessConstructorTarget), exception.Message);
+        }
+
+        [Fact]
+        public void CreateMap_DestinationWithoutParameterlessConstructor_ShouldNotPoisonRetryOrValidPair()
+        {
+            // Arrange
+            Assert.Throws<InvalidOperationException>(() => _mapper.CreateMap<NoParameterlessConstructorProfile>());
+
+            // Act
+            var retryException = Assert.Throws<InvalidOperationException>(
+                () => _mapper.CreateMap<NoParameterlessConstructorProfile>());
+            _mapper.CreateMap<SimpleProfile>();
+            var result = _mapper.Map<SimpleSource, SimpleTarget>(new SimpleSource { Name = "A", Age = 1 });
+
+            // Assert
+            Assert.Contains(nameof(NoParameterlessConstructorTarget), retryException.Message);
+            Assert.Equal("A", result.Name);
+            Assert.Equal(1, result.Age);
+        }
     }
 }
