@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
+		<TargetFrameworks>net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 
@@ -20,7 +20,7 @@
 		<PackageProjectUrl>https://github.com/kadirdemirkaya/MapFlux</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/kadirdemirkaya/MapFlux</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<PackageTags>mapper object-mapping mapping dotnet net6 net7 net8 net9</PackageTags>
+		<PackageTags>mapper object-mapping mapping dotnet net6 net7 net8 net9 net10</PackageTags>
 		<PackageReleaseNotes>Initial release with Profile-based and Attribute-based mapping support.</PackageReleaseNotes>
 		<AssemblyInformationalVersion>1.1.0</AssemblyInformationalVersion>
 		<PackageReadmeFile>README.md</PackageReadmeFile>

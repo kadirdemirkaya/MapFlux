@@ -38,6 +38,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `ForMember` now throws a descriptive `ArgumentException` at configuration time for a destination expression that is not a direct member access on the destination parameter — including a nested path such as `d => d.Inner.Name`. Previously a nested path silently wrote the mapped value to the wrong top-level member instead of the intended nested one.
 - An explicit `CreateMap<TDestination, TSource>` now always takes precedence over the convention-based map that `ReverseMap()` registers for the same type pair, regardless of which one is configured first. Previously, whichever was registered last won, so a `ReverseMap()` call could silently overwrite an explicit map configured earlier in the same profile. Two explicit `CreateMap` calls for the same pair are unaffected — the one registered last still wins.
 
+### Build
+
+- The library and test projects now also target `net10.0`, alongside the existing `net6.0`,
+  `net7.0`, `net8.0` and `net9.0`.
+
 ## [1.1.0] — —
 
 ### Changed
