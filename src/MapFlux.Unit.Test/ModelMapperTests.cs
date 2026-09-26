@@ -272,6 +272,165 @@ namespace MapFlux.Unit.Test
             Assert.Equal(32, ModelMapper.MaxDepth);
         }
 
+        [Fact]
+        public void Map_ValueTypeAndStringElements_ShouldCopyElements()
+        {
+            // Arrange
+            var source = new ModelCollectionSource
+            {
+                Numbers = new List<int> { 1, 2, 3 },
+                OptionalNumbers = new List<int?> { 7, null },
+                Names = new[] { "first", "second" }
+            };
+
+            // Act
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+
+            // Assert
+            Assert.Equal(new[] { 1, 2, 3 }, result.Numbers);
+            Assert.Equal(new int?[] { 7, null }, result.OptionalNumbers);
+            Assert.Equal(new[] { "first", "second" }, result.Names);
+        }
+
+        [Fact]
+        public void Map_Arrays_ShouldMapElements()
+        {
+            // Arrange
+            var source = new ModelCollectionSource
+            {
+                Names = new[] { "a", "b" },
+                ArrayItems = new[] { new ItemSource { Key = "A1" }, new ItemSource { Key = "A2" } },
+                ListToArrayItems = new List<ItemSource> { new ItemSource { Key = "L1" } },
+                NumbersToReadOnlyList = new[] { 4, 5 }
+            };
+
+            // Act
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+
+            // Assert
+            Assert.Equal(new[] { "a", "b" }, result.Names);
+            Assert.Equal(2, result.ArrayItems.Length);
+            Assert.Equal("A1", result.ArrayItems[0].Key);
+            Assert.Equal("A2", result.ArrayItems[1].Key);
+            Assert.Single(result.ListToArrayItems);
+            Assert.Equal("L1", result.ListToArrayItems[0].Key);
+            Assert.Equal(new[] { 4, 5 }, result.NumbersToReadOnlyList);
+        }
+
+        [Fact]
+        public void Map_Dictionaries_ShouldKeepKeysAndMapClassValues()
+        {
+            // Arrange
+            var source = new ModelCollectionSource
+            {
+                Counts = new Dictionary<string, int> { ["one"] = 1, ["two"] = 2 },
+                ItemsByKey = new Dictionary<string, ItemSource>
+                {
+                    ["first"] = new ItemSource { Key = "D1" }
+                }
+            };
+
+            // Act
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+
+            // Assert
+            Assert.Equal(2, result.Counts.Count);
+            Assert.Equal(1, result.Counts["one"]);
+            Assert.Equal(2, result.Counts["two"]);
+            Assert.Single(result.ItemsByKey);
+            Assert.Equal("D1", result.ItemsByKey["first"].Key);
+        }
+
+        [Fact]
+        public void Map_NullCollectionElements_ShouldStayNull()
+        {
+            // Arrange
+            var source = new ModelCollectionSource
+            {
+                OptionalNumbers = new List<int?> { null, 3 },
+                Names = new[] { null, "name" },
+                ArrayItems = new[] { null, new ItemSource { Key = "A" } },
+                ListToArrayItems = new List<ItemSource> { new ItemSource { Key = "L" }, null }
+            };
+
+            // Act
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+
+            // Assert
+            Assert.Null(result.OptionalNumbers[0]);
+            Assert.Equal(3, result.OptionalNumbers[1]);
+            Assert.Null(result.Names[0]);
+            Assert.Null(result.ArrayItems[0]);
+            Assert.Equal("A", result.ArrayItems[1].Key);
+            Assert.Equal("L", result.ListToArrayItems[0].Key);
+            Assert.Null(result.ListToArrayItems[1]);
+        }
+
+        [Fact]
+        public void Map_EnumerableSourceToList_ShouldMapElements()
+        {
+            // Arrange
+            var source = new ModelCollectionSource
+            {
+                EnumerableItems = new List<ItemSource> { new ItemSource { Key = "E1" } }
+                    .Where(item => item.Key == "E1")
+            };
+
+            // Act
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+
+            // Assert
+            Assert.Single(result.EnumerableItems);
+            Assert.Equal("E1", result.EnumerableItems[0].Key);
+        }
+
+        [Fact]
+        public void Map_NullCollectionMembers_ShouldLeaveTargetNull()
+        {
+            // Arrange
+            var source = new ModelCollectionSource();
+
+            // Act
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Null(result.Numbers);
+            Assert.Null(result.Names);
+            Assert.Null(result.ArrayItems);
+            Assert.Null(result.EnumerableItems);
+            Assert.Null(result.Counts);
+            Assert.Null(result.ItemsByKey);
+        }
+
+        [Fact]
+        public void Map_UnsupportedDestinationCollection_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var source = new ModelUnsupportedCollectionSource { Numbers = new List<int> { 1 } };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => ModelMapper.Map<ModelUnsupportedCollectionSource, ModelUnsupportedCollectionTarget>(source));
+            Assert.Contains($"{nameof(ModelUnsupportedCollectionTarget)}.{nameof(ModelUnsupportedCollectionTarget.Numbers)}", exception.Message);
+            Assert.Contains("List<Int32>", exception.Message);
+            Assert.Contains("String", exception.Message);
+        }
+
+        [Fact]
+        public void Map_UnmappableCollectionElement_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var source = new ModelUnmappableElementSource { Numbers = new List<int> { 1 } };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => ModelMapper.Map<ModelUnmappableElementSource, ModelUnmappableElementTarget>(source));
+            Assert.Contains($"{nameof(ModelUnmappableElementTarget)}.{nameof(ModelUnmappableElementTarget.Numbers)}", exception.Message);
+            Assert.Contains("Int32", exception.Message);
+            Assert.Contains(nameof(ItemTarget), exception.Message);
+        }
+
         private static CycleNodeSource BuildChain(int length)
         {
             var head = new CycleNodeSource { Id = 0 };
