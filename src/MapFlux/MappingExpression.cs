@@ -6,15 +6,9 @@ namespace MapFlux
 {
     public class MappingExpression<TSource, TDestination> : IMappingExpression<TSource, TDestination>
     {
-        private static readonly Func<TDestination> _createInstance;
+        private static Func<TDestination>? _createInstance;
         private static readonly ConcurrentDictionary<string, Action<object, object>> _propertySetters = new();
         private static readonly ConcurrentDictionary<string, Func<object, object?>> _propertyGetters = new();
-
-        static MappingExpression()
-        {
-            var newExpr = Expression.New(typeof(TDestination));
-            _createInstance = Expression.Lambda<Func<TDestination>>(newExpr).Compile();
-        }
 
         private readonly Dictionary<string, Func<TSource, object?>> _memberMappings = new();
         private readonly Dictionary<string, Type> _memberMappingTypes = new();
@@ -26,6 +20,22 @@ namespace MapFlux
         public MappingExpression(Mapper mapper)
         {
             _mapper = mapper;
+            _createInstance ??= BuildCreateInstance();
+        }
+
+        private static Func<TDestination> BuildCreateInstance()
+        {
+            if (typeof(TDestination).GetConstructor(Type.EmptyTypes) is null)
+            {
+                throw new InvalidOperationException(
+                    $"CreateMap<{typeof(TSource).Name}, {typeof(TDestination).Name}> failed: " +
+                    $"{typeof(TDestination).Name} does not have a public parameterless constructor, " +
+                    "so MapFlux cannot create instances of it. Add a parameterless constructor, " +
+                    "or map to a destination type that has one.");
+            }
+
+            var newExpr = Expression.New(typeof(TDestination));
+            return Expression.Lambda<Func<TDestination>>(newExpr).Compile();
         }
 
         public IMappingExpression<TSource, TDestination> ForMember<TMember>(
@@ -136,7 +146,7 @@ namespace MapFlux
 
             return source =>
             {
-                var destination = _createInstance();
+                var destination = _createInstance!();
 
                 foreach (var plan in mappingPlan)
                 {

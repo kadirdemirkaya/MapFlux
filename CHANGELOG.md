@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `CreateMap` for a destination type without a public parameterless constructor now throws a descriptive `InvalidOperationException` naming the destination type, right when `CreateMap` is called. Previously it threw a `TypeInitializationException` and permanently poisoned that source/destination pair for the rest of the process, so even a later, correct registration for the same pair kept failing.
 - A collection member or a top-level collection call whose elements can be neither mapped nor assigned now throws an `InvalidOperationException` naming the member and both element types, instead of reporting the two collection type names.
 
 - `Mapper.Map` no longer throws `InvalidCastException` when a source and a destination member have different types. Numeric conversions in both directions, `Nullable<T>` in both directions, and enum to or from its underlying numeric type are now performed inside the compiled mapping plan — both for name-matched members and for `MapFrom`. A `null` source member still leaves the destination member at the default value of its type.
