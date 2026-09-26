@@ -73,6 +73,14 @@ namespace MapFlux
                     var sourceValue = sourceProp.GetValue(source);
                     if (sourceValue == null) continue;
 
+                    if (targetProp.PropertyType.GetConstructor(Type.EmptyTypes) is null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot map {typeof(TTarget).Name}.{targetProp.Name}: the destination type " +
+                            $"{targetProp.PropertyType.Name} has no public parameterless constructor. Add one, " +
+                            "or configure this member differently.");
+                    }
+
                     var mappedValue = GetMethod(sourceProp.PropertyType, targetProp.PropertyType, sourceValue);
 
                     targetProp.SetValue(target, mappedValue);
