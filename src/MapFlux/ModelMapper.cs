@@ -35,7 +35,7 @@ namespace MapFlux
                     }
                 }
 
-                if (targetProp == null || !targetProp.CanWrite) continue; // {get; (set;) !}
+                if (targetProp == null || !targetProp.CanWrite) continue;
 
                 if (typeof(IEnumerable).IsAssignableFrom(sourceProp.PropertyType) && sourceProp.PropertyType != typeof(string)) 
                 {
