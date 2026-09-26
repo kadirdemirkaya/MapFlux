@@ -87,6 +87,80 @@ namespace MapFlux.Unit.Test
         }
 
         [Fact]
+        public void Map_NullSource_ShouldReturnDefault()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            ElementSource source = null;
+
+            // Act
+            var result = _mapper.Map<ElementSource, ElementTarget>(source);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void Map_NullList_ShouldReturnNull()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            List<ElementSource> source = null;
+
+            // Act
+            var result = _mapper.Map<List<ElementSource>, List<ElementTarget>>(source);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void Map_ListWithNullElement_ShouldKeepNullInResult()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var source = new List<ElementSource>
+            {
+                new ElementSource { Id = 1, Name = "First" },
+                null,
+                new ElementSource { Id = 2, Name = "Second" }
+            };
+
+            // Act
+            var result = _mapper.Map<List<ElementSource>, List<ElementTarget>>(source);
+
+            // Assert
+            Assert.Equal(3, result.Count);
+            Assert.Equal(1, result[0].ElementId);
+            Assert.Null(result[1]);
+            Assert.Equal(2, result[2].ElementId);
+        }
+
+        [Fact]
+        public void Map_NestedListPropertyWithNullElement_ShouldKeepNullInResult()
+        {
+            // Arrange
+            _mapper.CreateMap<NullSafetyContainerProfile>();
+            var source = new NullSafetyContainerSource
+            {
+                Elements = new List<ElementSource>
+                {
+                    new ElementSource { Id = 1, Name = "First" },
+                    null
+                }
+            };
+
+            // Act
+            var result = _mapper.Map<NullSafetyContainerSource, NullSafetyContainerTarget>(source);
+
+            // Assert
+            Assert.NotNull(result.Elements);
+            Assert.Equal(2, result.Elements.Count);
+            Assert.Equal(1, result.Elements[0].ElementId);
+            Assert.Null(result.Elements[1]);
+        }
+
+        [Fact]
         public void ReverseMap_ShouldMapInReverseDirection()
         {
             // Arrange

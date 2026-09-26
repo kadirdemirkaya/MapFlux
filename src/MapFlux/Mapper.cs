@@ -18,6 +18,11 @@ namespace MapFlux
 
         public TDestination Map<TSource, TDestination>(TSource source)
         {
+            if (source is null)
+            {
+                return default!;
+            }
+
             var sourceType = typeof(TSource);
             var destinationType = typeof(TDestination);
 
@@ -34,7 +39,7 @@ namespace MapFlux
 
                     foreach (var item in sourceList)
                     {
-                        destList.Add(elementMapper(item));
+                        destList.Add(item is null ? null : elementMapper(item));
                     }
 
                     return (TDestination)(object)destList;
