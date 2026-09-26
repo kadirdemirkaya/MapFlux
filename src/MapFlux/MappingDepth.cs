@@ -21,9 +21,6 @@ namespace MapFlux
 
         internal static void Exit() => _depth--;
 
-        internal static bool WasExceeded(Exception exception) =>
-            exception is InvalidOperationException && exception.Data.Contains(ExceededMarker);
-
         internal static int Validate(int value, string memberName)
         {
             if (value < 1)

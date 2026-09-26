@@ -14,7 +14,7 @@ MapFlux contains two independent mapping engines:
 
 **Profile-based Mapper** -- When you call `CreateMap<TProfile>()`, each mapping configuration is analyzed at setup time. The engine uses expression trees to build a mapping plan and compiles it into a cached delegate. Properties are matched by convention (case-insensitive name lookup) unless overridden with `ForMember`. At runtime, the compiled delegate executes directly, eliminating per-call reflection overhead. Nested objects and collections are resolved by looking up registered mappings from the same cache.
 
-**ModelMapper** -- A static entry point that requires no configuration. It reflects on source and target types, matches properties by name or `[PropertyMapping]` attribute, and recursively maps complex types and collections via reflection. Ideal for quick transformations where you want to avoid setting up profiles.
+**ModelMapper** -- A static entry point that requires no configuration. It reflects on source and target types, matches properties by name or `[PropertyMapping]` attribute, and recursively maps complex types and collections. The member plan for a source/target type pair -- the attributes, the matched target property and the compiled property accessors -- is built on first use and cached, and a nested member or collection element is mapped through a cached delegate, so repeated mappings of the same pair do not pay for that reflection again. Ideal for quick transformations where you want to avoid setting up profiles.
 
 ---
 

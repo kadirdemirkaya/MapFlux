@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Reflection;
 
 namespace MapFlux
 {
@@ -24,16 +23,6 @@ namespace MapFlux
             typeof(IEnumerable).IsAssignableFrom(type) && type != typeof(string);
 
         internal static object Map(
-            object source,
-            PropertyInfo destinationMember,
-            Func<Type, Type, object, object?> mapValue) =>
-            Map(
-                source,
-                destinationMember.PropertyType,
-                mapValue,
-                $"{destinationMember.DeclaringType!.Name}.{destinationMember.Name}");
-
-        private static object Map(
             object source,
             Type destinationType,
             Func<Type, Type, object, object?> mapValue,

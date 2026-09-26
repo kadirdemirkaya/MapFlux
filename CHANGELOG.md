@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `ModelMapper.Map` now maps a collection member whose elements are value types, `Nullable<T>` or `string` (`List<int>`, `string[]`), an array member in either direction (`Src[]` to `Dst[]`, `List<Src>` to `Dst[]`), a `Dictionary<,>` member and a nested collection element. The destination member may be an array, a `List<T>`, any other `IList` implementation with a public parameterless constructor, one of `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, `IReadOnlyCollection<T>` and `IReadOnlyList<T>`, or `Dictionary<TKey, TValue>`, `IDictionary<TKey, TValue>`, `IReadOnlyDictionary<TKey, TValue>` and any other `IDictionary` implementation. Dictionary keys and values follow the same element rules, so keys and value-type values are copied and class values are mapped recursively. Previously only `IEnumerable<Src>` to `List<Dst>` worked: a value-type element threw `ArgumentException`, an array destination `MissingMethodException` and a dictionary member `InvalidCastException`.
 
+### Changed
+
+- `ModelMapper.Map` is considerably faster and allocates far less. The member plan for a source/target type pair — the `[PropertyMapping]` attributes, the matched target property, and the accessors — is now built once per pair and reused, and a nested member or collection element is mapped through a cached delegate instead of a reflective call built on every mapping. Measured on the same object graph over 200 000 mappings: 5,50 µs and 1921 bytes per mapping before, 1,93 µs and 480 bytes after (0,40 µs once the code is fully warmed up). Behaviour, results and error messages are unchanged.
+
 ### Fixed
 
 - `ModelMapper.Map` no longer throws `NullReferenceException` for a `null` element inside a collection member — the element stays `null` in the result, as it already did for `Mapper`. A collection member whose destination type is not a supported collection shape, or whose element can be neither mapped nor assigned, now throws an `InvalidOperationException` naming the destination member and both type names.
