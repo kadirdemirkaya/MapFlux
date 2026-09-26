@@ -31,6 +31,7 @@ MapFlux contains two independent mapping engines:
 - **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
 - **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
+- **Documented and Source-Linked** -- Every public API member ships XML documentation for IntelliSense, and the package is source-linked so debugging into MapFlux fetches the matching source from GitHub.
 
 ---
 

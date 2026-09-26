@@ -3,6 +3,10 @@ using System.Reflection;
 
 namespace MapFlux
 {
+    /// <summary>
+    /// Static, configuration-free mapper that maps between types by matching property names or
+    /// <see cref="PropertyMappingAttribute"/>, recursing into nested classes and collections.
+    /// </summary>
     public static class ModelMapper
     {
         private static readonly ConcurrentDictionary<(Type Source, Type Target), Func<object, object?>> _nestedMappers = new();
@@ -11,12 +15,20 @@ namespace MapFlux
 
         private static int _maxDepth = MappingDepth.DefaultLimit;
 
+        /// <summary>
+        /// The maximum nesting depth <see cref="Map{TSource, TTarget}(TSource)"/> follows before throwing.
+        /// </summary>
         public static int MaxDepth
         {
             get => _maxDepth;
             set => _maxDepth = MappingDepth.Validate(value, $"{nameof(ModelMapper)}.{nameof(MaxDepth)}");
         }
 
+        /// <summary>
+        /// Maps <paramref name="source"/> onto a new <typeparamref name="TTarget"/> instance, recursing into
+        /// nested classes and collections. Returns <see langword="null"/> when <paramref name="source"/> is
+        /// <see langword="null"/>.
+        /// </summary>
         public static TTarget? Map<TSource, TTarget>(TSource? source)
             where TTarget : class, new()
             where TSource : class

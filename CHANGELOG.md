@@ -42,6 +42,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The library and test projects now also target `net10.0`, alongside the existing `net6.0`,
   `net7.0`, `net8.0` and `net9.0`.
+- The package now ships an XML documentation file for every target framework, so public API members
+  show their documentation in IntelliSense. SourceLink is enabled for a deterministic, source-linked
+  package, so stepping into MapFlux from a debugger fetches the matching source from GitHub instead of
+  showing a decompiled view. SourceLink is a development-time dependency only; the package still has no
+  runtime dependencies.
 
 ## [1.1.0] — —
 
