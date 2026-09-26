@@ -232,6 +232,57 @@ namespace MapFlux.Unit.Test
         }
 
         [Fact]
+        public void ForMember_ConvertedDestinationBody_ShouldMapMember()
+        {
+            // Arrange
+            _mapper.CreateMap<ForMemberConvertProfile>();
+            var source = new Source { Id = 1, Name = "Test" };
+
+            // Act
+            var result = _mapper.Map<Source, Target>(source);
+
+            // Assert
+            Assert.Equal(1, result.TargetId);
+            Assert.Equal("Test", result.TargetName);
+        }
+
+        [Fact]
+        public void ForMember_NestedDestinationPath_ShouldThrowArgumentException()
+        {
+            // Act & Assert
+            var exception = Assert.Throws<ArgumentException>(() => _mapper.CreateMap<ForMemberNestedPathProfile>());
+            Assert.Contains("ForMember", exception.Message);
+            Assert.Contains("d.Member", exception.Message);
+        }
+
+        [Fact]
+        public void ForMember_NestedDestinationPath_ShouldNotRegisterMapping()
+        {
+            // Arrange
+            try
+            {
+                _mapper.CreateMap<ForMemberNestedPathProfile>();
+            }
+            catch (ArgumentException)
+            {
+            }
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => _mapper.Map<DeepSource, DeepTarget>(new DeepSource
+            {
+                Level1 = new Level1Source { Name = "top" }
+            }));
+        }
+
+        [Fact]
+        public void ForMember_NonMemberDestinationBody_ShouldThrowArgumentException()
+        {
+            // Act & Assert
+            var exception = Assert.Throws<ArgumentException>(() => _mapper.CreateMap<ForMemberInvalidBodyProfile>());
+            Assert.Contains("ForMember", exception.Message);
+        }
+
+        [Fact]
         public void Map_ConventionBasedMapping_ShouldMatchByName()
         {
             // Arrange

@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - `Mapper.Map` no longer throws `NullReferenceException` for a `null` source, a `null` source list, or a `null` element inside a list (top-level or nested property). A `null` source now returns `default(TDestination)`, a `null` list returns `null`, and a `null` list element is kept as `null` in the mapped list.
+- `ForMember` no longer throws `InvalidCastException` for a destination expression wrapped in a conversion, such as `d => (object)d.Name`.
+- `ForMember` now throws a descriptive `ArgumentException` at configuration time for a destination expression that is not a direct member access on the destination parameter — including a nested path such as `d => d.Inner.Name`. Previously a nested path silently wrote the mapped value to the wrong top-level member instead of the intended nested one.
 
 ## [1.1.0] — —
 

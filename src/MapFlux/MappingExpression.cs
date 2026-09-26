@@ -32,7 +32,22 @@ namespace MapFlux
             Expression<Func<TDestination, TMember>> destinationMember,
             Action<IMemberConfigurationExpression<TSource, TDestination, TMember>> memberOptions)
         {
-            var destinationName = ((MemberExpression)destinationMember.Body).Member.Name;
+            var body = destinationMember.Body;
+
+            if (body is UnaryExpression unary &&
+                (unary.NodeType == ExpressionType.Convert || unary.NodeType == ExpressionType.ConvertChecked))
+            {
+                body = unary.Operand;
+            }
+
+            if (body is not MemberExpression memberExpression || memberExpression.Expression is not ParameterExpression)
+            {
+                throw new ArgumentException(
+                    $"ForMember expects a simple member access expression in the form 'd => d.Member', but got '{destinationMember}'.",
+                    nameof(destinationMember));
+            }
+
+            var destinationName = memberExpression.Member.Name;
             var memberConfig = new MemberConfigurationExpression<TSource, TDestination, TMember>();
             memberOptions(memberConfig);
 
