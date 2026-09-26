@@ -8,7 +8,7 @@ namespace MapFlux
     {
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
 
-        public static TTarget Map<TSource, TTarget>(TSource source)
+        public static TTarget? Map<TSource, TTarget>(TSource? source)
             where TTarget : class, new()
             where TSource : class
         {
@@ -39,15 +39,15 @@ namespace MapFlux
 
                 if (typeof(IEnumerable).IsAssignableFrom(sourceProp.PropertyType) && sourceProp.PropertyType != typeof(string)) 
                 {
-                    var sourceList = (IEnumerable)sourceProp.GetValue(source);
+                    var sourceList = (IEnumerable?)sourceProp.GetValue(source);
                     if (sourceList == null) continue;
 
-                    var targetList = (IList)Activator.CreateInstance(targetProp.PropertyType);
+                    var targetList = (IList)Activator.CreateInstance(targetProp.PropertyType)!;
                     var targetListItemType = targetProp.PropertyType.GetGenericArguments().FirstOrDefault();
 
                     foreach (var item in sourceList)
                     {
-                        var mappedItem = GetMethod(item.GetType(), targetListItemType, item);
+                        var mappedItem = GetMethod(item.GetType(), targetListItemType!, item);
 
                         targetList.Add(mappedItem);
                     }
@@ -75,9 +75,9 @@ namespace MapFlux
         private static PropertyInfo[] GetPropertyInfoByType<TType>()
             => _propertyCache.GetOrAdd(typeof(TType), t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance));
 
-        private static object GetMethod(Type sourceProperty, Type targetProperty, object sourceValue)
+        private static object? GetMethod(Type sourceProperty, Type targetProperty, object sourceValue)
             => typeof(ModelMapper)
-                        .GetMethod("Map", BindingFlags.Public | BindingFlags.Static)
+                        .GetMethod("Map", BindingFlags.Public | BindingFlags.Static)!
                         .MakeGenericMethod(sourceProperty, targetProperty)
                         .Invoke(null, new[] { sourceValue });
     }
