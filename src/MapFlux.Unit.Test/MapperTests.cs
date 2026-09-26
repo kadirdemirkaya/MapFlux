@@ -3,6 +3,7 @@ using MapFlux.Unit.Test.Models;
 using MapFlux.Unit.Test.Dtos;
 using MapFlux.Unit.Test.Profiles;
 using System.Collections.Generic;
+using System.Reflection;
 using Xunit;
 
 namespace MapFlux.Unit.Test
@@ -1440,6 +1441,47 @@ namespace MapFlux.Unit.Test
             Assert.Equal("Mapped", created.Name);
             Assert.Null(created.Untouched);
             Assert.Null(created.Secret);
+        }
+
+        [Fact]
+        public void CreateMapsFromAssemblies_ShouldRegisterEveryConcreteProfileInAssembly()
+        {
+            // Arrange
+            _mapper.CreateMapsFromAssemblies(typeof(MapFlux.Console.Test.Profiles.UserProfile).Assembly);
+
+            // Act
+            var result = _mapper.Map<MapFlux.Console.Test.Models.Customer, MapFlux.Console.Test.Dtos.CustomerDto>(
+                new MapFlux.Console.Test.Models.Customer { Id = 1, FirstName = "Ada", LastName = "Lovelace", Email = "ada@example.com" });
+
+            // Assert
+            Assert.Equal(1, result.Id);
+            Assert.Equal("Ada", result.FirstName);
+            Assert.Equal("Lovelace", result.LastName);
+            Assert.Equal("ada@example.com", result.Email);
+        }
+
+        [Fact]
+        public void CreateMapsFromAssemblies_CalledTwice_ShouldNotThrow()
+        {
+            // Arrange
+            var assembly = typeof(MapFlux.Console.Test.Profiles.UserProfile).Assembly;
+            _mapper.CreateMapsFromAssemblies(assembly);
+
+            // Act
+            var exception = Record.Exception(() => _mapper.CreateMapsFromAssemblies(assembly));
+
+            // Assert
+            Assert.Null(exception);
+            var result = _mapper.Map<MapFlux.Console.Test.Models.Customer, MapFlux.Console.Test.Dtos.CustomerDto>(
+                new MapFlux.Console.Test.Models.Customer { Id = 2, FirstName = "Grace", LastName = "Hopper", Email = "grace@example.com" });
+            Assert.Equal("Grace", result.FirstName);
+        }
+
+        [Fact]
+        public void CreateMapsFromAssemblies_NoAssemblies_ShouldThrowArgumentException()
+        {
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => _mapper.CreateMapsFromAssemblies());
         }
 
         private static CycleNodeSource BuildChain(int length)

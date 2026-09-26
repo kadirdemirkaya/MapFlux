@@ -78,6 +78,14 @@ var user = new User { Name = "John Doe", Email = "john@example.com" };
 var userDto = mapper.Map<User, UserDto>(user);
 ```
 
+Registering profiles one by one does not scale once an assembly holds many of them. Register every
+concrete, parameterless-constructor `Profile` found in one or more assemblies with a single call;
+registering the same profile again afterwards does not throw:
+
+```csharp
+mapper.CreateMapsFromAssemblies(typeof(UserProfile).Assembly);
+```
+
 ### Approach 2: Attribute-based Mapping (ModelMapper)
 
 For quick, convention-driven mapping with optional attribute overrides:
@@ -369,6 +377,7 @@ config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore(
 | Method | Description |
 |--------|-------------|
 | `CreateMap<TProfile>()` | Registers a mapping profile (expression-compiled) |
+| `CreateMapsFromAssemblies(params Assembly[] assemblies)` | Registers every concrete, parameterless-constructor `Profile` found in the given assemblies |
 | `Map<TSource, TDestination>(TSource source)` | Maps an object to the destination type |
 | `Map<TSource, TDestination>(TSource source, TDestination destination)` | Maps onto an existing destination instance and returns it; ignored, unmatched and `null`-sourced members keep their current value |
 | `AssertConfigurationIsValid()` | Validates all registered mappings for unmapped destination properties |
