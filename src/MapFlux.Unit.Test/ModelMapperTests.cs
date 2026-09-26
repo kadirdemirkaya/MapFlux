@@ -55,6 +55,24 @@ namespace MapFlux.Unit.Test
         }
 
         [Fact]
+        public void Map_NestedTargetWithoutParameterlessConstructor_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var source = new ModelNestedNoCtorSource
+            {
+                Title = "Parent",
+                Child = new ModelNestedNoCtorChildSource { Note = "Hello" }
+            };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => ModelMapper.Map<ModelNestedNoCtorSource, ModelNestedNoCtorTarget>(source));
+            Assert.Contains($"{nameof(ModelNestedNoCtorTarget)}.{nameof(ModelNestedNoCtorTarget.Child)}", exception.Message);
+            Assert.Contains(nameof(ModelNestedNoCtorChildTarget), exception.Message);
+            Assert.Contains("parameterless constructor", exception.Message);
+        }
+
+        [Fact]
         public void Map_Collections_ShouldMapElements()
         {
             // Arrange
