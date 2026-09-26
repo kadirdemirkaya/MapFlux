@@ -298,5 +298,125 @@ namespace MapFlux.Unit.Test
             Assert.Equal("Test", result.Name);
             Assert.Equal("test@test.com", result.Email);
         }
+
+        [Fact]
+        public void Map_NumericMembers_ShouldWidenAndNarrow()
+        {
+            // Arrange
+            _mapper.CreateMap<ConversionProfile>();
+            var source = new ConversionSource
+            {
+                Count = 5,
+                Total = 9L,
+                Amount = 42,
+                Ratio = 1.5f,
+                Name = "Test"
+            };
+
+            // Act
+            var result = _mapper.Map<ConversionSource, ConversionTarget>(source);
+
+            // Assert
+            Assert.Equal(5L, result.Count);
+            Assert.Equal(9, result.Total);
+            Assert.Equal(42m, result.Amount);
+            Assert.Equal(1.5d, result.Ratio);
+            Assert.Equal("Test", result.Name);
+        }
+
+        [Fact]
+        public void Map_NullableMembers_ShouldConvertInBothDirections()
+        {
+            // Arrange
+            _mapper.CreateMap<ConversionProfile>();
+            var source = new ConversionSource { OptionalCount = 7, Score = 3, Code = 11 };
+
+            // Act
+            var result = _mapper.Map<ConversionSource, ConversionTarget>(source);
+
+            // Assert
+            Assert.Equal(7L, result.OptionalCount);
+            Assert.Equal(3L, result.Score);
+            Assert.Equal(11, result.Code);
+        }
+
+        [Fact]
+        public void Map_NullNullableMember_ShouldUseDestinationDefault()
+        {
+            // Arrange
+            _mapper.CreateMap<ConversionProfile>();
+            var source = new ConversionSource { OptionalCount = null, Count = 4 };
+
+            // Act
+            var result = _mapper.Map<ConversionSource, ConversionTarget>(source);
+
+            // Assert
+            Assert.Equal(0L, result.OptionalCount);
+            Assert.Equal(4L, result.Count);
+        }
+
+        [Fact]
+        public void Map_EnumMembers_ShouldConvertToAndFromUnderlyingType()
+        {
+            // Arrange
+            _mapper.CreateMap<ConversionProfile>();
+            var source = new ConversionSource
+            {
+                Level = ConversionLevel.High,
+                Priority = ConversionLevel.Low,
+                Rank = 2
+            };
+
+            // Act
+            var result = _mapper.Map<ConversionSource, ConversionTarget>(source);
+
+            // Assert
+            Assert.Equal(2, result.Level);
+            Assert.Equal(1L, result.Priority);
+            Assert.Equal(ConversionLevel.High, result.Rank);
+        }
+
+        [Fact]
+        public void Map_MapFromWithDifferentMemberType_ShouldConvert()
+        {
+            // Arrange
+            _mapper.CreateMap<ConversionMapFromProfile>();
+            var source = new ConversionSource { Rank = 6, Count = 3, Priority = ConversionLevel.High };
+
+            // Act
+            var result = _mapper.Map<ConversionSource, ConversionTarget>(source);
+
+            // Assert
+            Assert.Equal(6L, result.Count);
+            Assert.Equal(3m, result.Amount);
+            Assert.Equal(2, result.Level);
+        }
+
+        [Fact]
+        public void Map_UnconvertibleMemberTypes_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<UnconvertibleProfile>();
+            var source = new UnconvertibleSource { Count = "12", Name = "Test" };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<UnconvertibleSource, UnconvertibleTarget>(source));
+            Assert.Contains("UnconvertibleTarget.Count", exception.Message);
+            Assert.Contains("String", exception.Message);
+            Assert.Contains("Int32", exception.Message);
+        }
+
+        [Fact]
+        public void CreateMap_UnconvertibleMemberTypes_ShouldNotThrowAtConfigurationTime()
+        {
+            // Act
+            var configurationException = Record.Exception(() => _mapper.CreateMap<UnconvertibleProfile>());
+            var validationException = Record.Exception(() => _mapper.AssertConfigurationIsValid());
+
+            // Assert
+            Assert.Null(configurationException);
+            Assert.Null(validationException);
+        }
     }
 }

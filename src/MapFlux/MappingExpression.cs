@@ -18,6 +18,7 @@ namespace MapFlux
         }
 
         private readonly Dictionary<string, Func<TSource, object?>> _memberMappings = new();
+        private readonly Dictionary<string, Type> _memberMappingTypes = new();
         private readonly HashSet<string> _ignoredMembers = new();
         private readonly Dictionary<string, object?> _nullSubstitutes = new();
 
@@ -58,6 +59,7 @@ namespace MapFlux
             }
 
             _memberMappings[destinationName] = memberConfig.ToObjectFunc();
+            _memberMappingTypes[destinationName] = typeof(TMember);
 
             if (memberConfig.HasDefaultValue)
             {
@@ -116,7 +118,8 @@ namespace MapFlux
 
                 if (_memberMappings.TryGetValue(destProp.Name, out var explicitMapper))
                 {
-                    mappingPlan.Add(new MappingPlanEntry(destProp, explicitMapper, null, setter, nullSub, hasNullSub));
+                    var converter = MemberValueConverter.Create(destProp, _memberMappingTypes[destProp.Name]);
+                    mappingPlan.Add(new MappingPlanEntry(destProp, explicitMapper, null, setter, nullSub, hasNullSub, converter));
                 }
                 else
                 {
@@ -126,7 +129,8 @@ namespace MapFlux
                     if (sourceProp != null)
                     {
                         var getter = GetSourcePropertyGetter(sourceProp);
-                        mappingPlan.Add(new MappingPlanEntry(destProp, null, getter, setter, nullSub, hasNullSub));
+                        var converter = MemberValueConverter.Create(destProp, sourceProp.PropertyType);
+                        mappingPlan.Add(new MappingPlanEntry(destProp, null, getter, setter, nullSub, hasNullSub, converter));
                     }
                 }
             }
@@ -187,7 +191,9 @@ namespace MapFlux
                         }
                         else
                         {
-                            plan.Setter(destination!, sourceValue);
+                            plan.Setter(destination!, plan.Converter is null
+                                ? sourceValue
+                                : plan.Converter.Convert(sourceValue));
                         }
                     }
                 }
@@ -207,6 +213,7 @@ namespace MapFlux
             public Action<object, object> Setter { get; }
             public object? NullSubstitute { get; }
             public bool HasNullSub { get; }
+            public MemberValueConverter? Converter { get; }
 
             public MappingPlanEntry(
                 PropertyInfo destProp,
@@ -214,14 +221,130 @@ namespace MapFlux
                 Func<object, object?>? conventionGetter,
                 Action<object, object> setter,
                 object? nullSubstitute,
-                bool hasNullSub)
+                bool hasNullSub,
+                MemberValueConverter? converter)
             {
+                Converter = converter;
                 DestProp = destProp;
                 ExplicitMapper = explicitMapper;
                 ConventionGetter = conventionGetter;
                 Setter = setter;
                 NullSubstitute = nullSubstitute;
                 HasNullSub = hasNullSub;
+            }
+        }
+
+        private sealed class MemberValueConverter
+        {
+            private static readonly Func<object, object> _passThrough = value => value;
+
+            private readonly ConcurrentDictionary<Type, Func<object, object>?> _runtimeConverters = new();
+            private readonly Type _destinationType;
+            private readonly Type _declaredSourceType;
+            private readonly Func<object, object>? _declaredConverter;
+            private readonly string _memberName;
+
+            private MemberValueConverter(
+                Type destinationType,
+                Type declaredSourceType,
+                Func<object, object>? declaredConverter,
+                string memberName)
+            {
+                _destinationType = destinationType;
+                _declaredSourceType = declaredSourceType;
+                _declaredConverter = declaredConverter;
+                _memberName = memberName;
+            }
+
+            public static MemberValueConverter? Create(PropertyInfo destinationProperty, Type sourceType)
+            {
+                var destinationType = Nullable.GetUnderlyingType(destinationProperty.PropertyType)
+                    ?? destinationProperty.PropertyType;
+                var declaredSourceType = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
+
+                if (destinationType.IsAssignableFrom(declaredSourceType))
+                {
+                    return null;
+                }
+
+                return new MemberValueConverter(
+                    destinationType,
+                    declaredSourceType,
+                    CreateConverter(declaredSourceType, destinationType),
+                    destinationProperty.Name);
+            }
+
+            public object Convert(object value)
+            {
+                var valueType = value.GetType();
+
+                if (valueType == _declaredSourceType)
+                {
+                    return _declaredConverter is null
+                        ? throw UnconvertibleValue(valueType)
+                        : _declaredConverter(value);
+                }
+
+                var runtimeConverter = _runtimeConverters.GetOrAdd(valueType, type => _destinationType.IsAssignableFrom(type)
+                    ? _passThrough
+                    : CreateConverter(type, _destinationType));
+
+                return runtimeConverter is null
+                    ? throw UnconvertibleValue(valueType)
+                    : runtimeConverter(value);
+            }
+
+            private InvalidOperationException UnconvertibleValue(Type valueType)
+            {
+                return new InvalidOperationException(
+                    $"Cannot map {typeof(TDestination).Name}.{_memberName}: " +
+                    $"no conversion from {valueType.Name} to {_destinationType.Name} is available. " +
+                    $"Register a map for that type pair with CreateMap, or use ForMember with MapFrom " +
+                    $"to supply a {_destinationType.Name} value.");
+            }
+
+            private static Func<object, object>? CreateConverter(Type sourceType, Type destinationType)
+            {
+                if (!IsNumericOrEnum(sourceType) || !IsNumericOrEnum(destinationType))
+                {
+                    return null;
+                }
+
+                var valueParameter = Expression.Parameter(typeof(object), "value");
+                Expression body = Expression.Convert(valueParameter, sourceType);
+
+                if (sourceType.IsEnum)
+                {
+                    body = Expression.Convert(body, Enum.GetUnderlyingType(sourceType));
+                }
+
+                body = Expression.Convert(body, destinationType.IsEnum
+                    ? Enum.GetUnderlyingType(destinationType)
+                    : destinationType);
+
+                if (destinationType.IsEnum)
+                {
+                    body = Expression.Convert(body, destinationType);
+                }
+
+                return Expression.Lambda<Func<object, object>>(
+                    Expression.Convert(body, typeof(object)), valueParameter).Compile();
+            }
+
+            private static bool IsNumericOrEnum(Type type)
+            {
+                if (type.IsEnum)
+                {
+                    return true;
+                }
+
+                return Type.GetTypeCode(type) switch
+                {
+                    TypeCode.SByte or TypeCode.Byte or TypeCode.Int16 or TypeCode.UInt16 or
+                    TypeCode.Int32 or TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64 or
+                    TypeCode.Single or TypeCode.Double or TypeCode.Decimal => true,
+                    _ => false
+                };
             }
         }
     }
