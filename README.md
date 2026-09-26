@@ -24,6 +24,7 @@ MapFlux contains two independent mapping engines:
 - **Expression-Compiled Mappings** -- Profile-based mapper builds expression trees at configuration time and compiles them into cached delegates, removing reflection from the hot path.
 - **Attribute-based Mapping** -- Use `[PropertyMapping]` on properties to override names. ModelMapper picks them up automatically with no configuration.
 - **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
+- **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
 
 ---
@@ -168,6 +169,23 @@ public class SimpleProfile : Profile
     }
 }
 ```
+
+### Type Conversion
+
+When a source and a destination member have different types, the profile-based mapper converts the value inside the compiled plan -- by name matching and through `MapFrom` alike:
+
+- numeric conversions in both directions: `int` -> `long`, `long` -> `int`, `int` -> `decimal`, `float` -> `double`
+- `Nullable<T>` in both directions: `int` -> `long?`, `int?` -> `long`. A `null` source member leaves the destination member at the default value of its type
+- enums and their underlying numeric type: `Status` -> `int`, `int` -> `Status`
+
+```csharp
+public class Order { public int Quantity { get; set; } }
+public class OrderDto { public long Quantity { get; set; } }
+
+var dto = mapper.Map<Order, OrderDto>(new Order { Quantity = 5 }); // dto.Quantity == 5L
+```
+
+A pair with no such conversion -- `string` -> `int`, for example -- throws an `InvalidOperationException` naming the member and both type names when `Map` is called. Configuration and `AssertConfigurationIsValid()` stay silent about it, so registering a map never fails at startup.
 
 ---
 
