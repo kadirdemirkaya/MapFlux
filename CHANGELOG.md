@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `Mapper.Map` now maps any source `IEnumerable<T>` other than `string` — an array, a `List<T>`, a collection interface, a LINQ result — into `T[]`, `List<T>`, `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, `IReadOnlyCollection<T>` and `IReadOnlyList<T>`, both for a member and for a top-level `Map` call. A registered element map is applied to every element; otherwise the source instance is passed through when the destination type already accepts it, or the elements are copied into the destination shape when the source element type is assignable. Previously only `List<T>` to `List<T>` worked, and an array, `IEnumerable<T>` or `IReadOnlyList<T>` destination failed. A `null` collection stays `null` and a `null` element is kept as `null`, as for a `List<T>`.
+
 ### Fixed
+
+- A collection member or a top-level collection call whose elements can be neither mapped nor assigned now throws an `InvalidOperationException` naming the member and both element types, instead of reporting the two collection type names.
 
 - `Mapper.Map` no longer throws `InvalidCastException` when a source and a destination member have different types. Numeric conversions in both directions, `Nullable<T>` in both directions, and enum to or from its underlying numeric type are now performed inside the compiled mapping plan — both for name-matched members and for `MapFrom`. A `null` source member still leaves the destination member at the default value of its type.
 - A member pair with no available conversion, such as `string` to `int`, now throws an `InvalidOperationException` naming the member and both type names instead of a bare `InvalidCastException`. Configuration and `AssertConfigurationIsValid()` stay silent about such a pair, so registering a map never fails at startup.
