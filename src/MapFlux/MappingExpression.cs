@@ -3,6 +3,10 @@ using System.Reflection;
 
 namespace MapFlux
 {
+    /// <summary>
+    /// Default <see cref="IMappingExpression{TSource, TDestination}"/> implementation. Builds and caches a
+    /// compiled mapping plan for the type pair.
+    /// </summary>
     public class MappingExpression<TSource, TDestination> : IMappingExpression<TSource, TDestination>
     {
         private readonly Dictionary<string, LambdaExpression> _memberMappings = new();
@@ -13,12 +17,16 @@ namespace MapFlux
 
         private readonly DestinationConstructor? _destinationConstructor;
 
+        /// <summary>
+        /// Creates a mapping expression that registers its compiled plan and reverse maps on <paramref name="mapper"/>.
+        /// </summary>
         public MappingExpression(Mapper mapper)
         {
             _mapper = mapper;
             _destinationConstructor = DestinationConstructor.Resolve(typeof(TSource), typeof(TDestination));
         }
 
+        /// <inheritdoc />
         public IMappingExpression<TSource, TDestination> ForMember<TMember>(
             Expression<Func<TDestination, TMember>> destinationMember,
             Action<IMemberConfigurationExpression<TSource, TDestination, TMember>> memberOptions)
@@ -81,12 +89,16 @@ namespace MapFlux
             return this;
         }
 
+        /// <inheritdoc />
         public IMappingExpression<TSource, TDestination> ReverseMap()
         {
             _mapper.AddReverseMapping<TDestination, TSource>();
             return this;
         }
 
+        /// <summary>
+        /// Compiles the mapping plan into a delegate that builds a new <typeparamref name="TDestination"/>.
+        /// </summary>
         public Func<object, object> GetMappingFunction()
         {
             var plan = BuildPlan();
@@ -107,6 +119,9 @@ namespace MapFlux
             };
         }
 
+        /// <summary>
+        /// Compiles the mapping plan into a delegate that maps onto an existing <typeparamref name="TDestination"/> instance.
+        /// </summary>
         public Func<object, object, object> GetMappingIntoFunction()
         {
             var plan = BuildIntoPlan();

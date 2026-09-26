@@ -3,6 +3,10 @@ using System.Reflection;
 
 namespace MapFlux
 {
+    /// <summary>
+    /// The map registry: compiles and caches mapping delegates per source/destination type pair and
+    /// exposes <see cref="IMapper"/> and <see cref="IExistingDestinationMapper"/>.
+    /// </summary>
     public class Mapper : IMapper, IExistingDestinationMapper
     {
         internal readonly ConcurrentDictionary<(Type Source, Type Destination), Func<object, object>> _mappings = new();
@@ -21,18 +25,27 @@ namespace MapFlux
 
         internal int RegistrationVersion => Volatile.Read(ref _registrationVersion);
 
+        /// <summary>
+        /// The maximum nesting depth a compiled map follows before throwing.
+        /// </summary>
         public int MaxDepth
         {
             get => _maxDepth;
             set => _maxDepth = MappingDepth.Validate(value, $"{nameof(Mapper)}.{nameof(MaxDepth)}");
         }
 
+        /// <inheritdoc />
         public void CreateMap<TProfile>() where TProfile : Profile, new()
         {
             var profile = new TProfile();
             profile.Configure(new MapperConfigurationExpression(this));
         }
 
+        /// <summary>
+        /// Registers every concrete <see cref="Profile"/> with a parameterless constructor found in the
+        /// given <paramref name="assemblies"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">No assembly was provided.</exception>
         public void CreateMapsFromAssemblies(params Assembly[] assemblies)
         {
             if (assemblies is null || assemblies.Length == 0)
@@ -57,6 +70,7 @@ namespace MapFlux
                 && type.GetConstructor(Type.EmptyTypes) is not null;
         }
 
+        /// <inheritdoc />
         public TDestination Map<TSource, TDestination>(TSource source)
         {
             if (source is null)
@@ -190,6 +204,11 @@ namespace MapFlux
                 mappingConfig.GetMappingIntoFunction, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
+        /// <summary>
+        /// Validates that every registered map covers all writable destination members, either by naming
+        /// convention or explicit configuration.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">One or more maps have unmapped destination members.</exception>
         public void AssertConfigurationIsValid()
         {
             var errors = CollectValidationErrors(strict: false);
@@ -201,6 +220,12 @@ namespace MapFlux
             }
         }
 
+        /// <summary>
+        /// Validates every registered map as <see cref="AssertConfigurationIsValid()"/> does and, when
+        /// <paramref name="strict"/> is <see langword="true"/>, also requires a registered nested or element
+        /// map for every member whose types are not directly assignable or convertible.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">One or more maps fail validation.</exception>
         public void AssertConfigurationIsValid(bool strict)
         {
             if (!strict)
