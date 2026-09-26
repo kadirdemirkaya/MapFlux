@@ -232,6 +232,80 @@ namespace MapFlux.Unit.Test
         }
 
         [Fact]
+        public void Map_MissingNestedMap_ShouldThrowInvalidOperationExceptionNamingTheMember()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapMissingProfile>();
+            var source = new ParentSource { Title = "Parent", Child = new ChildSource { Note = "Note" } };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<ParentSource, ParentTarget>(source));
+            Assert.Contains("ParentTarget.Child", exception.Message);
+            Assert.Contains("ChildSource", exception.Message);
+            Assert.Contains("ChildTarget", exception.Message);
+        }
+
+        [Fact]
+        public void AssertConfigurationIsValid_ShouldNotDetectMissingNestedMap()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapMissingProfile>();
+
+            // Act & Assert - default validation only checks unmapped property names, not type compatibility
+            _mapper.AssertConfigurationIsValid();
+        }
+
+        [Fact]
+        public void AssertConfigurationIsValid_Strict_ShouldThrowOnMissingNestedMap()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapMissingProfile>();
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.AssertConfigurationIsValid(true));
+            Assert.Contains("ParentTarget.Child", exception.Message);
+            Assert.Contains("ChildSource", exception.Message);
+            Assert.Contains("ChildTarget", exception.Message);
+        }
+
+        [Fact]
+        public void AssertConfigurationIsValid_Strict_ShouldThrowOnMissingElementMap()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionMismatchProfile>();
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.AssertConfigurationIsValid(true));
+            Assert.Contains("CollectionMismatchTarget.Elements", exception.Message);
+            Assert.Contains("ElementSource", exception.Message);
+            Assert.Contains("ElementTarget", exception.Message);
+        }
+
+        [Fact]
+        public void AssertConfigurationIsValid_Strict_ShouldPassWhenNestedAndElementMapsAreRegistered()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapCompleteProfile>();
+            _mapper.CreateMap<CollectionShapeProfile>();
+
+            // Act & Assert - Should not throw
+            _mapper.AssertConfigurationIsValid(true);
+        }
+
+        [Fact]
+        public void AssertConfigurationIsValid_StrictFalse_ShouldBehaveLikeDefaultOverload()
+        {
+            // Arrange
+            _mapper.CreateMap<NestedMapMissingProfile>();
+
+            // Act & Assert - Should not throw, same as the parameterless overload
+            _mapper.AssertConfigurationIsValid(false);
+        }
+
+        [Fact]
         public void ForMember_ConvertedDestinationBody_ShouldMapMember()
         {
             // Arrange
