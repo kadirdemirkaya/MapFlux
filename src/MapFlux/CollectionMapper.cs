@@ -146,7 +146,7 @@ namespace MapFlux
             return elementMapper is null ? item : elementMapper(item);
         }
 
-        private static bool TryGetElementType(Type type, out Type elementType)
+        internal static bool TryGetElementType(Type type, out Type elementType)
         {
             elementType = null!;
 

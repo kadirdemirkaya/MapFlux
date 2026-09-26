@@ -25,7 +25,7 @@ MapFlux contains two independent mapping engines:
 - **Attribute-based Mapping** -- Use `[PropertyMapping]` on properties to override names. ModelMapper picks them up automatically with no configuration.
 - **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
-- **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element.
+- **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element. ModelMapper accepts the same member shapes plus `Dictionary<,>`, with no configuration.
 - **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
 - **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
@@ -245,6 +245,48 @@ The element is resolved in this order:
 - otherwise `Map` throws an `InvalidOperationException` naming the member and both element types
 
 A `null` collection leaves the destination member `null` and returns `null` from a top-level `Map`; a `null` element stays `null` in the result. A `string` is never treated as a collection of characters.
+
+### Collection and Dictionary Members (ModelMapper)
+
+`ModelMapper` maps a collection member without any configuration. The source member may be any
+`IEnumerable<T>` except `string`, and the destination member may be an array, a `List<T>`, any other
+`IList` implementation with a public parameterless constructor, or one of `IEnumerable<T>`,
+`ICollection<T>`, `IList<T>`, `IReadOnlyCollection<T>` and `IReadOnlyList<T>`:
+
+```csharp
+public class Order
+{
+    public List<int> Quantities { get; set; }
+    public string[] Tags { get; set; }
+    public Item[] Items { get; set; }
+    public Dictionary<string, Item> ItemsByCode { get; set; }
+}
+
+public class OrderDto
+{
+    public List<int> Quantities { get; set; }
+    public string[] Tags { get; set; }
+    public List<ItemDto> Items { get; set; }
+    public Dictionary<string, ItemDto> ItemsByCode { get; set; }
+}
+
+var dto = ModelMapper.Map<Order, OrderDto>(order);
+```
+
+Each element is resolved on its own:
+
+- a value type, a `Nullable<T>`, a `string` or any element already assignable to the destination element type is copied as it is
+- a class element with a public parameterless constructor on both sides is mapped recursively, by name and `[PropertyMapping]`, like any nested member
+- a nested collection element is mapped into the destination element shape
+- otherwise `Map` throws an `InvalidOperationException` naming the destination member and both element types
+
+A dictionary member maps into `Dictionary<TKey, TValue>`, `IDictionary<TKey, TValue>`,
+`IReadOnlyDictionary<TKey, TValue>` or any other `IDictionary` implementation with a public
+parameterless constructor. Keys and values follow the same element rules, so `Dictionary<string, int>`
+is copied entry by entry while the values of `Dictionary<string, Item>` are mapped to `ItemDto`.
+
+A `null` collection or dictionary member leaves the destination member `null`, and a `null` element
+stays `null` in the result.
 
 ---
 

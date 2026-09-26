@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
@@ -62,22 +61,12 @@ namespace MapFlux
 
                 if (targetProp == null || !targetProp.CanWrite) continue;
 
-                if (typeof(IEnumerable).IsAssignableFrom(sourceProp.PropertyType) && sourceProp.PropertyType != typeof(string)) 
+                if (ModelCollectionMapper.IsCollection(sourceProp.PropertyType))
                 {
-                    var sourceList = (IEnumerable?)sourceProp.GetValue(source);
-                    if (sourceList == null) continue;
+                    var sourceCollection = sourceProp.GetValue(source);
+                    if (sourceCollection == null) continue;
 
-                    var targetList = (IList)Activator.CreateInstance(targetProp.PropertyType)!;
-                    var targetListItemType = targetProp.PropertyType.GetGenericArguments().FirstOrDefault();
-
-                    foreach (var item in sourceList)
-                    {
-                        var mappedItem = GetMethod(item.GetType(), targetListItemType!, item);
-
-                        targetList.Add(mappedItem);
-                    }
-
-                    targetProp.SetValue(target, targetList);
+                    targetProp.SetValue(target, ModelCollectionMapper.Map(sourceCollection, targetProp, GetMethod));
                 }
                 else if (sourceProp.PropertyType.IsClass && sourceProp.PropertyType != typeof(string))
                 {
