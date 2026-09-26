@@ -157,7 +157,7 @@ namespace MapFlux
                             var destList = (IList)Activator.CreateInstance(destPropType)!;
                             foreach (var item in sourceList)
                             {
-                                destList.Add(elemMapper(item));
+                                destList.Add(item is null ? null : elemMapper(item));
                             }
                             plan.Setter(destination!, destList);
                             handled = true;
