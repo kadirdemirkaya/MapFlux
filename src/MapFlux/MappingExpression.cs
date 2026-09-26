@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -163,24 +162,13 @@ namespace MapFlux
                     var destPropType = plan.DestProp.PropertyType;
                     bool handled = false;
 
-                    if (sourceValue is IList sourceList &&
-                        destPropType.IsGenericType &&
-                        typeof(IList).IsAssignableFrom(destPropType))
-                    {
-                        var destElemType = destPropType.GetGenericArguments().FirstOrDefault();
-                        var sourceElemType = sourceValue.GetType().GetGenericArguments().FirstOrDefault();
+                    var collectionOutcome = CollectionMapper.TryMap(
+                        sourceValue, destPropType, _mapper, plan.DestProp, out var mappedCollection);
 
-                        if (destElemType != null && sourceElemType != null &&
-                            _mapper._mappings.TryGetValue((sourceElemType, destElemType), out var elemMapper))
-                        {
-                            var destList = (IList)Activator.CreateInstance(destPropType)!;
-                            foreach (var item in sourceList)
-                            {
-                                destList.Add(item is null ? null : elemMapper(item));
-                            }
-                            plan.Setter(destination!, destList);
-                            handled = true;
-                        }
+                    if (collectionOutcome == CollectionMapOutcome.Mapped)
+                    {
+                        plan.Setter(destination!, mappedCollection!);
+                        handled = true;
                     }
 
                     if (!handled)

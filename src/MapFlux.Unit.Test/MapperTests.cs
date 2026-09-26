@@ -418,5 +418,270 @@ namespace MapFlux.Unit.Test
             Assert.Null(configurationException);
             Assert.Null(validationException);
         }
+
+        [Fact]
+        public void Map_ArrayProperties_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var source = new CollectionShapeSource
+            {
+                ArrayItems = new[] { new ElementSource { Id = 1, Name = "First" } },
+                ArrayFromListItems = new List<ElementSource> { new ElementSource { Id = 2, Name = "Second" } }
+            };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Single(result.ArrayItems);
+            Assert.Equal(1, result.ArrayItems[0].ElementId);
+            Assert.Equal("First", result.ArrayItems[0].ElementName);
+            Assert.Single(result.ArrayFromListItems);
+            Assert.Equal(2, result.ArrayFromListItems[0].ElementId);
+        }
+
+        [Fact]
+        public void Map_CollectionInterfaceProperties_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var source = new CollectionShapeSource
+            {
+                ListItems = new List<ElementSource> { new ElementSource { Id = 1, Name = "List" } },
+                EnumerableItems = new List<ElementSource> { new ElementSource { Id = 2, Name = "Enumerable" } },
+                CollectionItems = new List<ElementSource> { new ElementSource { Id = 3, Name = "Collection" } },
+                ListInterfaceItems = new[] { new ElementSource { Id = 4, Name = "ListInterface" } },
+                ReadOnlyListItems = new List<ElementSource> { new ElementSource { Id = 5, Name = "ReadOnlyList" } },
+                ReadOnlyCollectionItems = new List<ElementSource> { new ElementSource { Id = 6, Name = "ReadOnlyCollection" } }
+            };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Equal(1, Assert.Single(result.ListItems).ElementId);
+            Assert.Equal("List", result.ListItems[0].ElementName);
+            Assert.Equal(2, Assert.Single(result.EnumerableItems).ElementId);
+            Assert.Equal(3, Assert.Single(result.CollectionItems).ElementId);
+            Assert.Equal(4, Assert.Single(result.ListInterfaceItems).ElementId);
+            Assert.Equal(5, Assert.Single(result.ReadOnlyListItems).ElementId);
+            Assert.Equal(6, Assert.Single(result.ReadOnlyCollectionItems).ElementId);
+        }
+
+        [Fact]
+        public void Map_AssignableElementCollectionProperty_ShouldCopyIntoDestinationShape()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var source = new CollectionShapeSource { Names = new[] { "First", "Second" } };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Equal(new List<string> { "First", "Second" }, result.Names);
+        }
+
+        [Fact]
+        public void Map_StringProperty_ShouldNotBeTreatedAsCollection()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var source = new CollectionShapeSource { Text = "Plain" };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Equal("Plain", result.Text);
+        }
+
+        [Fact]
+        public void Map_NullCollectionProperty_ShouldStayNull()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var source = new CollectionShapeSource { NullItems = null };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Null(result.NullItems);
+        }
+
+        [Fact]
+        public void Map_ArrayPropertyWithNullElement_ShouldKeepNullInResult()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionShapeProfile>();
+            var source = new CollectionShapeSource
+            {
+                ArrayItems = new[] { new ElementSource { Id = 1, Name = "First" }, null }
+            };
+
+            // Act
+            var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
+
+            // Assert
+            Assert.Equal(2, result.ArrayItems.Length);
+            Assert.Equal(1, result.ArrayItems[0].ElementId);
+            Assert.Null(result.ArrayItems[1]);
+        }
+
+        [Fact]
+        public void Map_CollectionPropertyWithoutElementMapping_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<CollectionMismatchProfile>();
+            var source = new CollectionMismatchSource
+            {
+                Elements = new List<ElementSource> { new ElementSource { Id = 1, Name = "First" } }
+            };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<CollectionMismatchSource, CollectionMismatchTarget>(source));
+            Assert.Contains("CollectionMismatchTarget.Elements", exception.Message);
+            Assert.Contains("ElementSource", exception.Message);
+            Assert.Contains("ElementTarget", exception.Message);
+        }
+
+        [Fact]
+        public void Map_TopLevelArrayToArray_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var source = new[]
+            {
+                new ElementSource { Id = 1, Name = "First" },
+                new ElementSource { Id = 2, Name = "Second" }
+            };
+
+            // Act
+            var result = _mapper.Map<ElementSource[], ElementTarget[]>(source);
+
+            // Assert
+            Assert.Equal(2, result.Length);
+            Assert.Equal(1, result[0].ElementId);
+            Assert.Equal("Second", result[1].ElementName);
+        }
+
+        [Fact]
+        public void Map_TopLevelEnumerableToList_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            IEnumerable<ElementSource> source = new List<ElementSource>
+            {
+                new ElementSource { Id = 7, Name = "Seventh" }
+            };
+
+            // Act
+            var result = _mapper.Map<IEnumerable<ElementSource>, List<ElementTarget>>(source);
+
+            // Assert
+            Assert.Equal(7, Assert.Single(result).ElementId);
+        }
+
+        [Fact]
+        public void Map_TopLevelListToReadOnlyList_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var source = new List<ElementSource> { new ElementSource { Id = 8, Name = "Eighth" } };
+
+            // Act
+            var result = _mapper.Map<List<ElementSource>, IReadOnlyList<ElementTarget>>(source);
+
+            // Assert
+            Assert.Equal(8, Assert.Single(result).ElementId);
+            Assert.Equal("Eighth", result[0].ElementName);
+        }
+
+        [Fact]
+        public void Map_TopLevelListToArray_ShouldMapElements()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var source = new List<ElementSource> { new ElementSource { Id = 9, Name = "Ninth" } };
+
+            // Act
+            var result = _mapper.Map<List<ElementSource>, ElementTarget[]>(source);
+
+            // Assert
+            Assert.Equal(9, Assert.Single(result).ElementId);
+        }
+
+        [Fact]
+        public void Map_TopLevelNullArray_ShouldReturnNull()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            ElementSource[] source = null;
+
+            // Act
+            var result = _mapper.Map<ElementSource[], ElementTarget[]>(source);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void Map_TopLevelArrayWithNullElement_ShouldKeepNullInResult()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var source = new[] { new ElementSource { Id = 1, Name = "First" }, null };
+
+            // Act
+            var result = _mapper.Map<ElementSource[], ElementTarget[]>(source);
+
+            // Assert
+            Assert.Equal(2, result.Length);
+            Assert.Equal(1, result[0].ElementId);
+            Assert.Null(result[1]);
+        }
+
+        [Fact]
+        public void Map_TopLevelAssignableElements_ShouldCopyIntoDestinationShape()
+        {
+            // Arrange
+            var source = new[] { "First", "Second" };
+
+            // Act
+            var result = _mapper.Map<string[], List<string>>(source);
+
+            // Assert
+            Assert.Equal(new List<string> { "First", "Second" }, result);
+        }
+
+        [Fact]
+        public void Map_TopLevelDirectlyAssignableCollection_ShouldReturnSourceInstance()
+        {
+            // Arrange
+            var source = new List<string> { "First" };
+
+            // Act
+            var result = _mapper.Map<List<string>, IEnumerable<string>>(source);
+
+            // Assert
+            Assert.Same(source, result);
+        }
+
+        [Fact]
+        public void Map_TopLevelCollectionWithoutElementMapping_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            _mapper.CreateMap<ElementProfile>();
+            var source = new List<ElementSource> { new ElementSource { Id = 1, Name = "First" } };
+
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.Map<List<ElementSource>, List<SimpleTarget>>(source));
+            Assert.Contains("ElementSource", exception.Message);
+            Assert.Contains("SimpleTarget", exception.Message);
+        }
     }
 }

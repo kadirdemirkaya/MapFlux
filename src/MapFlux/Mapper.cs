@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
 
@@ -26,27 +25,16 @@ namespace MapFlux
             var sourceType = typeof(TSource);
             var destinationType = typeof(TDestination);
 
-            if (sourceType.IsGenericType && sourceType.GetGenericTypeDefinition() == typeof(List<>) &&
-                destinationType.IsGenericType && destinationType.GetGenericTypeDefinition() == typeof(List<>))
+            var collectionOutcome = CollectionMapper.TryMap(source!, destinationType, this, null, out var mappedCollection);
+
+            if (collectionOutcome == CollectionMapOutcome.Mapped)
             {
-                var sourceElementType = sourceType.GetGenericArguments()[0];
-                var destElementType = destinationType.GetGenericArguments()[0];
+                return (TDestination)mappedCollection!;
+            }
 
-                if (_mappings.TryGetValue((sourceElementType, destElementType), out var elementMapper))
-                {
-                    var sourceList = (IList)source!;
-                    var destList = (IList)Activator.CreateInstance(destinationType)!;
-
-                    foreach (var item in sourceList)
-                    {
-                        destList.Add(item is null ? null : elementMapper(item));
-                    }
-
-                    return (TDestination)(object)destList;
-                }
-
-                throw new InvalidOperationException(
-                    $"Element mapping from {sourceElementType.Name} to {destElementType.Name} is not defined.");
+            if (collectionOutcome == CollectionMapOutcome.DirectlyAssignable)
+            {
+                return (TDestination)(object)source!;
             }
 
             if (_mappings.TryGetValue((sourceType, destinationType), out var mappingFunction))

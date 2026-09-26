@@ -25,6 +25,7 @@ MapFlux contains two independent mapping engines:
 - **Attribute-based Mapping** -- Use `[PropertyMapping]` on properties to override names. ModelMapper picks them up automatically with no configuration.
 - **Fluent Member Configuration** -- Clean API for custom member mapping, ignoring properties, and null substitution.
 - **Type Conversion** -- Numeric, `Nullable<T>` and enum member types are converted inside the compiled plan; a pair with no conversion reports the member and both type names.
+- **Collection Shapes** -- Arrays, `List<T>` and the collection interfaces map into one another, as a member and at the top level, with the element map applied to every element.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
 
 ---
@@ -186,6 +187,32 @@ var dto = mapper.Map<Order, OrderDto>(new Order { Quantity = 5 }); // dto.Quanti
 ```
 
 A pair with no such conversion -- `string` -> `int`, for example -- throws an `InvalidOperationException` naming the member and both type names when `Map` is called. Configuration and `AssertConfigurationIsValid()` stay silent about it, so registering a map never fails at startup.
+
+### Collection Shapes
+
+Any source `IEnumerable<T>` except `string` -- an array, a `List<T>`, a collection interface, a LINQ result -- maps to any of these destination shapes, both as a member and in a top-level `Map` call:
+
+`T[]` -- `List<T>` -- `IEnumerable<T>` -- `ICollection<T>` -- `IList<T>` -- `IReadOnlyCollection<T>` -- `IReadOnlyList<T>`
+
+```csharp
+public class Order { public Item[] Items { get; set; } }
+public class OrderDto { public IReadOnlyList<ItemDto> Items { get; set; } }
+
+config.CreateMap<Item, ItemDto>(m => { });
+config.CreateMap<Order, OrderDto>(m => { });
+
+var dto = mapper.Map<Order, OrderDto>(order);                  // Item[] -> IReadOnlyList<ItemDto>
+var dtos = mapper.Map<Item[], List<ItemDto>>(order.Items);     // top-level, same rules
+```
+
+The element is resolved in this order:
+
+- a registered element map is applied to every element
+- otherwise, when the destination type already accepts the source collection itself, the source instance is passed through
+- otherwise, when the source element type is assignable to the destination element type, the elements are copied into the destination shape
+- otherwise `Map` throws an `InvalidOperationException` naming the member and both element types
+
+A `null` collection leaves the destination member `null` and returns `null` from a top-level `Map`; a `null` element stays `null` in the result. A `string` is never treated as a collection of characters.
 
 ---
 
