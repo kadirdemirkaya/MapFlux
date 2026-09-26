@@ -10,6 +10,9 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<DebugType>portable</DebugType>
 
+		<EnablePackageValidation>true</EnablePackageValidation>
+		<PackageValidationBaselineVersion>1.1.0</PackageValidationBaselineVersion>
+
 		<PackageId>MapFlux</PackageId>
 		<Version>1.1.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
