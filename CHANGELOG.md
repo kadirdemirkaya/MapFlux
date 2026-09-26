@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- A package icon (`assets/icon.png`, `<PackageIcon>icon.png</PackageIcon>`) and a centered logo at the top of `README.md`.
+
 - `Mapper.Map<TSource, TDestination>(TSource source, TDestination destination)`: maps onto a destination instance the caller already owns and returns that same instance instead of creating a new one. Members that are `Ignore()`d, members the source has no counterpart for, and members whose source value is `null` without a `NullSubstitute` keep the value the destination already holds; a nested or collection member that is mapped is replaced by a newly built instance rather than merged into the existing one. A `null` source returns the destination untouched, a `null` destination throws `ArgumentNullException`, and a collection destination throws `InvalidOperationException` naming the shape. The overload is also reachable through the new `IExistingDestinationMapper` interface, which `Mapper` implements; `IMapper` is unchanged, so existing implementations of it keep compiling.
 - `Mapper.MaxDepth` and `ModelMapper.MaxDepth`: the maximum recursion depth of a single `Map` call, `32` by default. Raise it for a graph that is genuinely deeper than the limit; a value below `1` throws `ArgumentOutOfRangeException`.
 - `Mapper.AssertConfigurationIsValid(bool strict)` overload: `strict: true` additionally validates every registered mapping's nested and element maps and member type compatibility (including the numeric/`Nullable<T>`/enum conversions above), aggregating every problem into one `InvalidOperationException`. The existing `AssertConfigurationIsValid()` overload is unchanged and keeps validating only unmapped destination properties.

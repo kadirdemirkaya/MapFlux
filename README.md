@@ -1,5 +1,7 @@
 # MapFlux
 
+<p align="center"><img src="https://raw.githubusercontent.com/kadirdemirkaya/MapFlux/main/assets/icon.png" alt="MapFlux logo" width="112" /></p>
+
 | Package | Downloads | License |
 |---------|-----------|---------|
 | [![NuGet](https://img.shields.io/nuget/v/MapFlux)](https://www.nuget.org/packages/MapFlux) | [![Downloads](https://img.shields.io/nuget/dt/MapFlux)](https://www.nuget.org/packages/MapFlux) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/MapFlux/blob/main/LICENSE.txt) |
