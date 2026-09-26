@@ -11,6 +11,8 @@ namespace MapFlux
 
         private readonly ConcurrentDictionary<(Type Source, Type Destination), Action<List<string>>> _strictValidations = new();
 
+        private readonly ConcurrentDictionary<(Type Source, Type Destination), bool> _explicitMappings = new();
+
         public void CreateMap<TProfile>() where TProfile : Profile, new()
         {
             var profile = new TProfile();
@@ -56,6 +58,7 @@ namespace MapFlux
             var sourceType = typeof(TSource);
             var destinationType = typeof(TDestination);
             _mappings[(sourceType, destinationType)] = mappingConfig.GetMappingFunction();
+            _explicitMappings[(sourceType, destinationType)] = true;
 
             _validations[(sourceType, destinationType)] = () =>
             {
@@ -70,9 +73,15 @@ namespace MapFlux
 
         internal void AddReverseMapping<TSource, TDestination>()
         {
-            var mappingConfig = new MappingExpression<TSource, TDestination>(this);
             var sourceType = typeof(TSource);
             var destinationType = typeof(TDestination);
+
+            if (_explicitMappings.ContainsKey((sourceType, destinationType)))
+            {
+                return;
+            }
+
+            var mappingConfig = new MappingExpression<TSource, TDestination>(this);
             _mappings[(sourceType, destinationType)] = mappingConfig.GetMappingFunction();
 
             _validations[(sourceType, destinationType)] = () =>

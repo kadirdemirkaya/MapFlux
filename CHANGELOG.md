@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Mapper.Map` no longer throws `NullReferenceException` for a `null` source, a `null` source list, or a `null` element inside a list (top-level or nested property). A `null` source now returns `default(TDestination)`, a `null` list returns `null`, and a `null` list element is kept as `null` in the mapped list.
 - `ForMember` no longer throws `InvalidCastException` for a destination expression wrapped in a conversion, such as `d => (object)d.Name`.
 - `ForMember` now throws a descriptive `ArgumentException` at configuration time for a destination expression that is not a direct member access on the destination parameter — including a nested path such as `d => d.Inner.Name`. Previously a nested path silently wrote the mapped value to the wrong top-level member instead of the intended nested one.
+- An explicit `CreateMap<TDestination, TSource>` now always takes precedence over the convention-based map that `ReverseMap()` registers for the same type pair, regardless of which one is configured first. Previously, whichever was registered last won, so a `ReverseMap()` call could silently overwrite an explicit map configured earlier in the same profile. Two explicit `CreateMap` calls for the same pair are unaffected — the one registered last still wins.
 
 ## [1.1.0] — —
 
