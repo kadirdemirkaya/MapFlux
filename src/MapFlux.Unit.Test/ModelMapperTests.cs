@@ -449,6 +449,173 @@ namespace MapFlux.Unit.Test
             Assert.Contains(nameof(ItemTarget), exception.Message);
         }
 
+        [Fact]
+        public void Map_SameTypePairMappedRepeatedly_ShouldMapEachSourceIndependently()
+        {
+            // Arrange
+            var first = new PlanCacheSource
+            {
+                Label = "first",
+                Count = 1,
+                Child = new PlanCacheChildSource { Note = "note-1" }
+            };
+            var second = new PlanCacheSource
+            {
+                Label = "second",
+                Count = 2,
+                Child = new PlanCacheChildSource { Note = "note-2" }
+            };
+
+            // Act
+            var firstResult = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(first);
+            var secondResult = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(second);
+
+            // Assert
+            Assert.Equal("first", firstResult.Label);
+            Assert.Equal(1, firstResult.Count);
+            Assert.Equal("note-1", firstResult.Child.Note);
+            Assert.Equal("second", secondResult.Label);
+            Assert.Equal(2, secondResult.Count);
+            Assert.Equal("note-2", secondResult.Child.Note);
+            Assert.NotSame(firstResult.Child, secondResult.Child);
+        }
+
+        [Fact]
+        public void Map_SameSourceTypeToDifferentTargets_ShouldUseEachTargetsOwnPlan()
+        {
+            // Arrange
+            var source = new PlanCacheSource
+            {
+                Label = "label",
+                Count = 3,
+                Child = new PlanCacheChildSource { Note = "note" }
+            };
+
+            // Act
+            var first = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
+            var second = ModelMapper.Map<PlanCacheSource, PlanCacheSecondTarget>(source);
+            var firstAgain = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
+
+            // Assert
+            Assert.Equal("label", first.Label);
+            Assert.Equal(3, first.Count);
+            Assert.Equal("note", first.Child.Note);
+            Assert.Equal("label", second.Caption);
+            Assert.Equal(7, second.Count);
+            Assert.Equal("note", second.Child.Note);
+            Assert.Equal("label", firstAgain.Label);
+            Assert.Equal(3, firstAgain.Count);
+            Assert.Equal("note", firstAgain.Child.Note);
+        }
+
+        [Fact]
+        public void Map_SameNestedSourceTypeToDifferentNestedTargets_ShouldMapEachWithItsOwnPlan()
+        {
+            // Arrange
+            var source = new PlanCacheSource
+            {
+                Label = "label",
+                Count = 9,
+                Child = new PlanCacheChildSource { Note = "note" }
+            };
+
+            // Act
+            var first = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
+            var alternative = ModelMapper.Map<PlanCacheSource, PlanCacheAltTarget>(source);
+
+            // Assert
+            Assert.Equal("note", first.Child.Note);
+            Assert.Equal("note", alternative.Child.Remark);
+            Assert.Equal("label", alternative.Label);
+        }
+
+        [Fact]
+        public void Map_NonPublicSetterAndWideningMember_ShouldStillBeMapped()
+        {
+            // Arrange
+            var source = new PlanCacheSource { Label = "label", Count = 5 };
+
+            // Act
+            var result = ModelMapper.Map<PlanCacheSource, PlanCacheFallbackTarget>(source);
+
+            // Assert
+            Assert.Equal("label", result.Label);
+            Assert.Equal(5L, result.Count);
+        }
+
+        [Fact]
+        public void Map_NullNestedMemberOfConstructorlessTarget_ShouldNotThrowUntilTheMemberIsSet()
+        {
+            // Arrange
+            var withoutChild = new PlanCacheSource { Label = "label" };
+            var withChild = new PlanCacheSource
+            {
+                Label = "label",
+                Child = new PlanCacheChildSource { Note = "note" }
+            };
+
+            // Act
+            var mapped = ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(withoutChild);
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(withChild));
+
+            // Assert
+            Assert.Equal("label", mapped.Label);
+            Assert.Null(mapped.Child);
+            Assert.Contains($"{nameof(PlanCacheNoCtorTarget)}.{nameof(PlanCacheNoCtorTarget.Child)}", exception.Message);
+            Assert.Contains(nameof(PlanCacheNoCtorChildTarget), exception.Message);
+            Assert.Contains("parameterless constructor", exception.Message);
+        }
+
+        [Fact]
+        public void Map_ConstructorlessTargetFailure_ShouldNotAffectOtherTargetsOfTheSameSource()
+        {
+            // Arrange
+            var source = new PlanCacheSource
+            {
+                Label = "label",
+                Count = 4,
+                Child = new PlanCacheChildSource { Note = "note" }
+            };
+
+            // Act
+            Assert.Throws<InvalidOperationException>(
+                () => ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(source));
+            var result = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
+
+            // Assert
+            Assert.Equal("label", result.Label);
+            Assert.Equal(4, result.Count);
+            Assert.Equal("note", result.Child.Note);
+        }
+
+        [Fact]
+        public void Map_ConcurrentCallsForTheSameTypePair_ShouldMapEveryResult()
+        {
+            // Arrange
+            var sources = Enumerable.Range(0, 200)
+                .Select(index => new PlanCacheSource
+                {
+                    Label = $"label-{index}",
+                    Count = index,
+                    Child = new PlanCacheChildSource { Note = $"note-{index}" }
+                })
+                .ToArray();
+            var results = new PlanCacheConcurrentTarget[sources.Length];
+
+            // Act
+            Parallel.For(0, sources.Length, index =>
+                results[index] = ModelMapper.Map<PlanCacheSource, PlanCacheConcurrentTarget>(sources[index]));
+
+            // Assert
+            for (var index = 0; index < results.Length; index++)
+            {
+                Assert.Equal($"label-{index}", results[index].Label);
+                Assert.Equal(index, results[index].Count);
+                Assert.Equal($"note-{index}", results[index].Child.Note);
+            }
+        }
+
         private static CycleNodeSource BuildChain(int length)
         {
             var head = new CycleNodeSource { Id = 0 };

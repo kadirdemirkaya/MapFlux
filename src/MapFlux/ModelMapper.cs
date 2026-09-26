@@ -1,12 +1,13 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 
 namespace MapFlux
 {
     public static class ModelMapper
     {
-        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
+        private static readonly ConcurrentDictionary<(Type Source, Type Target), Func<object, object?>> _nestedMappers = new();
+
+        private static readonly Func<Type, Type, object, object?> _mapNested = MapNested;
 
         private static int _maxDepth = MappingDepth.DefaultLimit;
 
@@ -40,77 +41,49 @@ namespace MapFlux
         {
             TTarget target = new TTarget();
 
-            var sourceProps = GetPropertyInfoByType<TSource>();
-            var targetProps = GetPropertyInfoByType<TTarget>();
-
-            foreach (var sourceProp in sourceProps)
+            foreach (var member in ModelMappingPlan.For(typeof(TSource), typeof(TTarget)))
             {
-                var targetProp = targetProps
-                    .FirstOrDefault(p => p.Name.Equals(sourceProp.Name, StringComparison.OrdinalIgnoreCase)
-                                 || p.GetCustomAttribute<PropertyMappingAttribute>()?.MappedName == sourceProp.Name);
+                var sourceValue = member.GetValue(source);
 
-                if (targetProp == null)
+                if (member.Kind == ModelMemberKind.Direct)
                 {
-                    var mappedName = sourceProp.GetCustomAttribute<PropertyMappingAttribute>()?.MappedName;
-                    if (mappedName != null)
-                    {
-                        targetProp = targetProps
-                            .FirstOrDefault(p => p.GetCustomAttribute<PropertyMappingAttribute>()?.MappedName == mappedName);
-                    }
+                    member.SetValue(target, sourceValue);
+                    continue;
                 }
 
-                if (targetProp == null || !targetProp.CanWrite) continue;
+                if (sourceValue == null) continue;
 
-                if (ModelCollectionMapper.IsCollection(sourceProp.PropertyType))
+                if (member.Kind == ModelMemberKind.Collection)
                 {
-                    var sourceCollection = sourceProp.GetValue(source);
-                    if (sourceCollection == null) continue;
-
-                    targetProp.SetValue(target, ModelCollectionMapper.Map(sourceCollection, targetProp, GetMethod));
+                    member.SetValue(
+                        target,
+                        ModelCollectionMapper.Map(sourceValue, member.TargetType, _mapNested, member.Description));
+                    continue;
                 }
-                else if (sourceProp.PropertyType.IsClass && sourceProp.PropertyType != typeof(string))
+
+                if (member.MissingConstructorError is not null)
                 {
-                    var sourceValue = sourceProp.GetValue(source);
-                    if (sourceValue == null) continue;
-
-                    if (targetProp.PropertyType.GetConstructor(Type.EmptyTypes) is null)
-                    {
-                        throw new InvalidOperationException(
-                            $"Cannot map {typeof(TTarget).Name}.{targetProp.Name}: the destination type " +
-                            $"{targetProp.PropertyType.Name} has no public parameterless constructor. Add one, " +
-                            "or configure this member differently.");
-                    }
-
-                    var mappedValue = GetMethod(sourceProp.PropertyType, targetProp.PropertyType, sourceValue);
-
-                    targetProp.SetValue(target, mappedValue);
+                    throw new InvalidOperationException(member.MissingConstructorError);
                 }
-                else
-                {
-                    targetProp.SetValue(target, sourceProp.GetValue(source));
-                }
+
+                member.SetValue(target, member.NestedMapper(sourceValue));
             }
 
             return target;
         }
 
-        private static PropertyInfo[] GetPropertyInfoByType<TType>()
-            => _propertyCache.GetOrAdd(typeof(TType), t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+        internal static Func<object, object?> NestedMapper(Type sourceType, Type targetType) =>
+            _nestedMappers.GetOrAdd((sourceType, targetType), pair => (Func<object, object?>)typeof(ModelMapper)
+                .GetMethod(nameof(MapBoxed), BindingFlags.NonPublic | BindingFlags.Static)!
+                .MakeGenericMethod(pair.Source, pair.Target)
+                .CreateDelegate(typeof(Func<object, object?>)));
 
-        private static object? GetMethod(Type sourceProperty, Type targetProperty, object sourceValue)
-        {
-            try
-            {
-                return typeof(ModelMapper)
-                            .GetMethod(nameof(Map), BindingFlags.Public | BindingFlags.Static)!
-                            .MakeGenericMethod(sourceProperty, targetProperty)
-                            .Invoke(null, new[] { sourceValue });
-            }
-            catch (TargetInvocationException ex) when (ex.InnerException is not null && MappingDepth.WasExceeded(ex.InnerException))
-            {
-                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                throw;
-            }
-        }
+        private static object? MapNested(Type sourceType, Type targetType, object sourceValue) =>
+            NestedMapper(sourceType, targetType)(sourceValue);
+
+        private static object? MapBoxed<TSource, TTarget>(object source)
+            where TTarget : class, new()
+            where TSource : class
+            => Map<TSource, TTarget>((TSource)source);
     }
 }
