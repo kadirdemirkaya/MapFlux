@@ -1484,6 +1484,176 @@ namespace MapFlux.Unit.Test
             Assert.Throws<ArgumentException>(() => _mapper.CreateMapsFromAssemblies());
         }
 
+        [Fact]
+        public void Map_ConstructorOnlyDestination_ShouldBuildThroughConstructor()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorProfile>();
+            var source = new ConstructorSource { Name = "Ada", Age = 36, Nickname = "Countess" };
+
+            // Act
+            var result = _mapper.Map<ConstructorSource, ConstructorTarget>(source);
+
+            // Assert
+            Assert.Equal("Ada", result.Name);
+            Assert.Equal(36L, result.Age);
+            Assert.Equal("Countess", result.Nickname);
+        }
+
+        [Fact]
+        public void Map_ReadOnlyMembersBoundToConstructor_ShouldPassConvertedValuesToConstructor()
+        {
+            // Arrange
+            _mapper.CreateMap<ReadOnlyConstructorProfile>();
+            var source = new ConstructorSource { Name = "Ada", Age = 36 };
+
+            // Act
+            var result = _mapper.Map<ConstructorSource, ReadOnlyConstructorTarget>(source);
+
+            // Assert
+            Assert.Equal("Ada", result.Name);
+            Assert.Equal(36L, result.Age);
+        }
+
+        [Fact]
+        public void Map_ReadOnlyMemberWithMapFrom_ShouldPassMappedValueToConstructor()
+        {
+            // Arrange
+            _mapper.CreateMap<ReadOnlyConstructorMapFromProfile>();
+            var mapped = new ConstructorSource { Name = "Ada", Age = 36, Nickname = "Countess" };
+            var substituted = new ConstructorSource { Name = "Ada", Age = 36, Nickname = null };
+
+            // Act
+            var mappedResult = _mapper.Map<ConstructorSource, ReadOnlyConstructorTarget>(mapped);
+            var substitutedResult = _mapper.Map<ConstructorSource, ReadOnlyConstructorTarget>(substituted);
+
+            // Assert
+            Assert.Equal("Countess", mappedResult.Name);
+            Assert.Equal("Anonymous", substitutedResult.Name);
+            Assert.Equal(36L, substitutedResult.Age);
+        }
+
+        [Fact]
+        public void AssertConfigurationIsValid_ConstructorOnlyDestination_ShouldNotThrow()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorProfile>();
+
+            // Act
+            var exception = Record.Exception(() => _mapper.AssertConfigurationIsValid());
+
+            // Assert
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void Map_ConstructorParameterWithMapFrom_ShouldUseMappedSourceMember()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorMapFromProfile>();
+            var source = new ConstructorSource { Name = "Ada", Age = 36, Nickname = "Countess" };
+
+            // Act
+            var result = _mapper.Map<ConstructorSource, ConstructorTarget>(source);
+
+            // Assert
+            Assert.Equal("Countess", result.Name);
+            Assert.Equal(36L, result.Age);
+        }
+
+        [Fact]
+        public void Map_ConstructorParameterWithNullSubstitute_ShouldUseSubstitute()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorMapFromProfile>();
+            var source = new ConstructorSource { Name = "Ada", Age = 36, Nickname = null };
+
+            // Act
+            var result = _mapper.Map<ConstructorSource, ConstructorTarget>(source);
+
+            // Assert
+            Assert.Equal("Anonymous", result.Name);
+        }
+
+        [Fact]
+        public void Map_IgnoredConstructorParameter_ShouldPassDefaultValue()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorIgnoreProfile>();
+            var source = new ConstructorSource { Name = "Ada", Age = 36 };
+
+            // Act
+            var result = _mapper.Map<ConstructorSource, ConstructorTarget>(source);
+
+            // Assert
+            Assert.Null(result.Name);
+            Assert.Equal(36L, result.Age);
+        }
+
+        [Fact]
+        public void Map_ConstructorOnlyDestinationWithNestedAndListMembers_ShouldMapThroughConstructor()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorParentProfile>();
+            var source = new ConstructorParentSource
+            {
+                Child = new ConstructorChildSource { Note = "inner" },
+                Children = new List<ConstructorChildSource>
+                {
+                    new ConstructorChildSource { Note = "first" },
+                    new ConstructorChildSource { Note = "second" }
+                }
+            };
+
+            // Act
+            var result = _mapper.Map<ConstructorParentSource, ConstructorParentTarget>(source);
+
+            // Assert
+            Assert.Equal("inner", result.Child.Note);
+            Assert.Equal(2, result.Children.Count);
+            Assert.Equal("first", result.Children[0].Note);
+            Assert.Equal("second", result.Children[1].Note);
+        }
+
+        [Fact]
+        public void MapInto_ConstructorOnlyDestination_ShouldUpdateExistingInstance()
+        {
+            // Arrange
+            _mapper.CreateMap<ConstructorProfile>();
+            var source = new ConstructorSource { Name = "Ada", Age = 36, Nickname = "Countess" };
+            var destination = new ConstructorTarget("Old", 1L) { Nickname = "None" };
+
+            // Act
+            var result = _mapper.Map<ConstructorSource, ConstructorTarget>(source, destination);
+
+            // Assert
+            Assert.Same(destination, result);
+            Assert.Equal("Ada", destination.Name);
+            Assert.Equal(36L, destination.Age);
+            Assert.Equal("Countess", destination.Nickname);
+        }
+
+        [Fact]
+        public void CreateMap_DestinationWithAmbiguousConstructors_ShouldThrowInvalidOperationException()
+        {
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.CreateMap<AmbiguousConstructorProfile>());
+            Assert.Contains(nameof(AmbiguousConstructorTarget), exception.Message);
+            Assert.Contains("more than one", exception.Message);
+            Assert.Contains($"{nameof(AmbiguousConstructorTarget)}(String name, Int32 age)", exception.Message);
+        }
+
+        [Fact]
+        public void CreateMap_ConstructorParameterWithoutMatchingMember_ShouldThrowInvalidOperationException()
+        {
+            // Act & Assert
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => _mapper.CreateMap<NoParameterlessConstructorProfile>());
+            Assert.Contains(nameof(NoParameterlessConstructorTarget), exception.Message);
+            Assert.Contains("'unmatched'", exception.Message);
+        }
+
         private static CycleNodeSource BuildChain(int length)
         {
             var head = new CycleNodeSource { Id = 0 };
