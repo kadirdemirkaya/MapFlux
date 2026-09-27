@@ -15,7 +15,7 @@ dotnet add package MapFlux
 ```
 
 ```xml
-<PackageReference Include="MapFlux" Version="1.1.0" />
+<PackageReference Include="MapFlux" Version="1.2.0" />
 ```
 
 Supported frameworks: .NET 6.0, 7.0, 8.0, 9.0 and 10.0.
