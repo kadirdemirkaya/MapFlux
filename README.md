@@ -8,6 +8,39 @@
 
 MapFlux is a .NET object-to-object mapping library that gives you **two complete mappers in one package** -- a Profile-based mapper with expression-compiled mappings and a static attribute-driven mapper for convention-based scenarios. Pick the style that fits your project.
 
+## Installation
+
+```bash
+dotnet add package MapFlux
+```
+
+```xml
+<PackageReference Include="MapFlux" Version="1.1.0" />
+```
+
+Supported frameworks: .NET 6.0, 7.0, 8.0, 9.0 and 10.0.
+
+## Quick Example
+
+```csharp
+public class UserProfile : Profile
+{
+    public override void Configure(IMapperConfigurationExpression config)
+    {
+        config.CreateMap<User, UserDto>(m =>
+        {
+            m.ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.Name));
+        });
+    }
+}
+
+var mapper = new Mapper();
+mapper.CreateMap<UserProfile>();
+
+var user = new User { Name = "John Doe", Email = "john@example.com" };
+var userDto = mapper.Map<User, UserDto>(user);
+```
+
 ---
 
 ## How It Works
@@ -34,26 +67,6 @@ MapFlux contains two independent mapping engines:
 - **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
 - **Documented and Source-Linked** -- Every public API member ships XML documentation for IntelliSense, and the package is source-linked so debugging into MapFlux fetches the matching source from GitHub.
-
----
-
-## Installation
-
-```bash
-dotnet add package MapFlux
-```
-
-```xml
-<PackageReference Include="MapFlux" Version="1.1.0" />
-```
-
-### Supported Frameworks
-
-- .NET 6.0
-- .NET 7.0
-- .NET 8.0
-- .NET 9.0
-- .NET 10.0
 
 ---
 
@@ -421,33 +434,54 @@ config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore(
 |--------|-------------|
 | `CreateMap<TProfile>()` | Registers a mapping profile (expression-compiled) |
 | `CreateMapsFromAssemblies(params Assembly[] assemblies)` | Registers every concrete, parameterless-constructor `Profile` found in the given assemblies |
-| `Map<TSource, TDestination>(TSource source)` | Maps an object to the destination type |
+| `Map<TSource, TDestination>(TSource source)` | Builds a new destination instance; throws `InvalidOperationException` when no map is registered for the pair |
 | `Map<TSource, TDestination>(TSource source, TDestination destination)` | Maps onto an existing destination instance and returns it; ignored, unmatched and `null`-sourced members keep their current value |
 | `AssertConfigurationIsValid()` | Validates all registered mappings for unmapped destination properties |
 | `AssertConfigurationIsValid(bool strict)` | `strict: true` additionally validates nested and element maps and type compatibility |
 | `MaxDepth` | Maximum recursion depth of a single `Map` call (default `32`); a deeper or cyclic graph throws `InvalidOperationException` |
 
+`Mapper` implements `IMapper` (`Map`, `CreateMap<TProfile>`) and `IExistingDestinationMapper`
+(`Map(source, destination)`), so either can be injected on its own without depending on the concrete type.
+
+### Profile
+
+| Member | Description |
+|--------|-------------|
+| `Configure(IMapperConfigurationExpression config)` | Abstract; override to declare the profile's maps |
+
+### IMapperConfigurationExpression
+
+| Method | Description |
+|--------|-------------|
+| `CreateMap<TSource, TDestination>(Action<IMappingExpression<TSource, TDestination>> mappingExpression)` | Registers a map from `TSource` to `TDestination`, configured through the callback |
+
 ### IMappingExpression<TSource, TDestination>
 
 | Method | Description |
 |--------|-------------|
-| `ForMember<TMember>()` | Configures mapping for a specific destination member |
+| `ForMember<TMember>(Expression<Func<TDestination, TMember>> destinationMember, Action<IMemberConfigurationExpression<TSource, TDestination, TMember>> memberOptions)` | Configures mapping for a specific destination member |
 | `ReverseMap()` | Registers a convention-based reverse mapping |
 
-### IMemberConfigurationExpression
+### IMemberConfigurationExpression<TSource, TDestination, TMember>
 
 | Method | Description |
 |--------|-------------|
-| `MapFrom()` | Specifies the source member |
+| `MapFrom(Expression<Func<TSource, TMember>> sourceMember)` | Specifies the source member |
 | `Ignore()` | Excludes the destination member from mapping |
-| `NullSubstitute()` | Provides a default value when source is null |
+| `NullSubstitute(TMember defaultValue)` | Provides a fallback value when the source member is `null` |
 
 ### ModelMapper (Static)
 
 | Method | Description |
 |--------|-------------|
-| `Map<TSource, TTarget>()` | Convention + attribute-based automatic mapping |
+| `Map<TSource, TTarget>(TSource source)` | Convention + attribute-based automatic mapping; a `null` source returns `null` |
 | `MaxDepth` | Maximum recursion depth of a single `Map` call (default `32`); a deeper or cyclic graph throws `InvalidOperationException` |
+
+### PropertyMappingAttribute
+
+| Member | Description |
+|--------|-------------|
+| `PropertyMappingAttribute(string mappedName)` | Applied to a source and/or target property so `ModelMapper` matches them by `mappedName` instead of the property name |
 
 ## Project Structure
 
