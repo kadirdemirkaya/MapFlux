@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-27
+
 ### Added
 
 - A package icon (`assets/icon.png`, `<PackageIcon>icon.png</PackageIcon>`) and a centered logo at the top of `README.md`.
@@ -71,6 +73,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Static attribute-based mapper: `ModelMapper.Map<TSource, TTarget>()` with `[PropertyMapping("Name")]`.
 - Multi-targeting: net6.0, net7.0, net8.0, net9.0.
 
-[Unreleased]: https://github.com/kadirdemirkaya/MapFlux/compare/41fe862ef14cfe18db6076ef15e1802d1e9a94c1...HEAD
+[Unreleased]: https://github.com/kadirdemirkaya/MapFlux/compare/HEAD...HEAD
+[1.2.0]: https://github.com/kadirdemirkaya/MapFlux/compare/41fe862ef14cfe18db6076ef15e1802d1e9a94c1...HEAD
 [1.1.0]: https://github.com/kadirdemirkaya/MapFlux/compare/abac68926181f6de0dcb64cfdbbe0b69eed7e6fc...41fe862ef14cfe18db6076ef15e1802d1e9a94c1
 [1.0.2]: https://github.com/kadirdemirkaya/MapFlux/commit/abac68926181f6de0dcb64cfdbbe0b69eed7e6fc

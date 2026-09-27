@@ -18,7 +18,7 @@
 		<ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 
 		<PackageId>MapFlux</PackageId>
-		<Version>1.1.0</Version>
+		<Version>1.2.0</Version>
 		<Authors>Kadir Demirkaya</Authors>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
 		<Description>A lightweight object-to-object mapping library for .NET with compiled mapping plans, Profile-based and Attribute-based mapping support.</Description>
@@ -26,8 +26,8 @@
 		<RepositoryUrl>https://github.com/kadirdemirkaya/MapFlux</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>mapper object-mapping mapping dotnet net6 net7 net8 net9 net10</PackageTags>
-		<PackageReleaseNotes>Initial release with Profile-based and Attribute-based mapping support.</PackageReleaseNotes>
-		<AssemblyInformationalVersion>1.1.0</AssemblyInformationalVersion>
+		<PackageReleaseNotes>Map onto an existing destination instance, map constructor-bound destinations such as records, register profiles from an assembly in one call, map arrays/collections/dictionaries beyond List, a MaxDepth guard against cyclic graphs, a strict AssertConfigurationIsValid overload, numeric/nullable/enum member conversions, faster compiled mapping plans for both mappers, a net10.0 target, and SourceLink with public API XML docs.</PackageReleaseNotes>
+		<AssemblyInformationalVersion>1.2.0</AssemblyInformationalVersion>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
