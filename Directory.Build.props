@@ -1,0 +1,8 @@
+<Project>
+
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'MapFlux'">
+		<Version>1.2.0</Version>
+		<AssemblyInformationalVersion>$(Version)</AssemblyInformationalVersion>
+	</PropertyGroup>
+
+</Project>
