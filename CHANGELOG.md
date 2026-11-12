@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - New package `MapFlux.DependencyInjection` 1.0.0 (its own version; `MapFlux` itself is unchanged and keeps no runtime dependency). `AddMapFlux` on `IServiceCollection` registers one singleton `Mapper`, built and configured when first resolved, behind both `IMapper` and `IExistingDestinationMapper`; the concrete `Mapper` type is not registered. Three overloads: `AddMapFlux(Action<IMapperConfigurationExpression>)`, `AddMapFlux(params Assembly[])` (an empty list throws the same `ArgumentException` as `Mapper.CreateMapsFromAssemblies`) and `AddMapFlux(Action<MapFluxOptions>)`. `MapFluxOptions` offers `AddProfile<TProfile>()`, `AddProfilesFromAssemblies(...)`, `Configure(...)`, `MaxDepth` (validated like `Mapper.MaxDepth`) and opt-in `ValidateConfiguration` / `StrictValidation` (off by default). A second `AddMapFlux` call on the same service collection throws `InvalidOperationException`. Targets net6.0–net10.0 and depends on `MapFlux` and `Microsoft.Extensions.DependencyInjection.Abstractions`.
 
+## [1.3.0] — 2026-11-12
+
+### Added
+
+- Opt-in query projection. `QueryableProjectionExtensions.ProjectMapped<TSource, TDestination>(this IQueryable<TSource>, IProjectionMapper)` appends a `Select` built from the registered map, so a query provider reads only the members the destination needs instead of the whole source object. The expression is also available directly through the new `IProjectionMapper` interface, which `Mapper` implements: `GetProjection<TSource, TDestination>()` returns it and `TryGetProjection` reports problems without throwing; `Mapper.AssertProjectionIsValid<TSource, TDestination>()` is a startup check. The projection uses the same configuration as `Map` — name convention, `MapFrom` (inlined as written, without a delegate call), `Ignore`, `NullSubstitute`, numeric/`Nullable<T>`/enum conversions, constructor-bound destinations, nested maps (guarded for `null`) and collection members (`Select(...).ToList()` or `ToArray()`). It contains only member-initialization, constructor, conditional, conversion and `Select`/`ToList`/`ToArray` nodes, is built on first use and is cached per `Mapper` instance until another map is registered.
+- A map that cannot be projected — a member pair with no conversion, a collection type a projection cannot build, or a cyclic type graph — throws one `InvalidOperationException` listing every offending member and the reason when the projection is built; there is no silent in-memory fallback. A cycle message names the `Ignore` call that breaks it. An unregistered pair throws the same message as `Map`.
+- Projection differs from `Map` in documented ways: a `null` source value is assigned as `null` (or the default value) instead of leaving the member untouched, nested and element maps are chosen from declared rather than runtime types, the provider's `null` and collation semantics apply, collection members are not `null`-guarded, and `MaxDepth` does not apply.
+
+`IMapper`, `IExistingDestinationMapper` and every existing `Map`, `CreateMap` and validation behaviour are unchanged, and the package still has no runtime dependency.
+
 ## [1.2.0] — 2026-09-27
 
 ### Added
@@ -78,6 +88,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Multi-targeting: net6.0, net7.0, net8.0, net9.0.
 
 [Unreleased]: https://github.com/kadirdemirkaya/MapFlux/compare/HEAD...HEAD
-[1.2.0]: https://github.com/kadirdemirkaya/MapFlux/compare/41fe862ef14cfe18db6076ef15e1802d1e9a94c1...HEAD
+[1.3.0]: https://github.com/kadirdemirkaya/MapFlux/compare/c8b0b858c82e2df31ee1220dc1dc26c0bbdc1f66...HEAD
+[1.2.0]: https://github.com/kadirdemirkaya/MapFlux/compare/41fe862ef14cfe18db6076ef15e1802d1e9a94c1...c8b0b858c82e2df31ee1220dc1dc26c0bbdc1f66
 [1.1.0]: https://github.com/kadirdemirkaya/MapFlux/compare/abac68926181f6de0dcb64cfdbbe0b69eed7e6fc...41fe862ef14cfe18db6076ef15e1802d1e9a94c1
 [1.0.2]: https://github.com/kadirdemirkaya/MapFlux/commit/abac68926181f6de0dcb64cfdbbe0b69eed7e6fc

@@ -7,7 +7,7 @@ namespace MapFlux
     /// Default <see cref="IMappingExpression{TSource, TDestination}"/> implementation. Builds and caches a
     /// compiled mapping plan for the type pair.
     /// </summary>
-    public class MappingExpression<TSource, TDestination> : IMappingExpression<TSource, TDestination>
+    public class MappingExpression<TSource, TDestination> : IMappingExpression<TSource, TDestination>, IProjectableMap
     {
         private readonly Dictionary<string, LambdaExpression> _memberMappings = new();
         private readonly HashSet<string> _ignoredMembers = new();
@@ -435,6 +435,31 @@ namespace MapFlux
             }
 
             return result;
+        }
+
+        Type IProjectableMap.SourceType => typeof(TSource);
+
+        Type IProjectableMap.DestinationType => typeof(TDestination);
+
+        DestinationConstructor? IProjectableMap.DestinationConstructor => _destinationConstructor;
+
+        bool IProjectableMap.IsIgnored(string destinationName) => _ignoredMembers.Contains(destinationName);
+
+        LambdaExpression? IProjectableMap.FindMemberMapping(string destinationName) =>
+            _memberMappings.TryGetValue(destinationName, out var mapping) ? mapping : null;
+
+        bool IProjectableMap.TryGetNullSubstitute(string destinationName, out object? value, out Type memberType)
+        {
+            if (_nullSubstitutes.TryGetValue(destinationName, out var substitute))
+            {
+                value = substitute.Value;
+                memberType = substitute.MemberType;
+                return true;
+            }
+
+            value = null;
+            memberType = typeof(object);
+            return false;
         }
 
         private sealed class NullSubstituteValue

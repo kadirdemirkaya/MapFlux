@@ -16,7 +16,7 @@ dotnet add package MapFlux
 ```
 
 ```xml
-<PackageReference Include="MapFlux" Version="1.2.0" />
+<PackageReference Include="MapFlux" Version="1.3.0" />
 ```
 
 Supported frameworks: .NET 6.0, 7.0, 8.0, 9.0 and 10.0.
@@ -66,6 +66,7 @@ MapFlux contains two independent mapping engines:
 - **Constructor-Based Destinations** -- A destination without a parameterless constructor, such as a positional `record`, is built through the constructor whose parameter names match its members; `ForMember` and the type conversions apply to constructor arguments too.
 - **Opt-in Strict Validation** -- `AssertConfigurationIsValid(true)` checks nested and element maps and type compatibility for every registered mapping, on top of the default unmapped-property check.
 - **Cycle-Safe by Default** -- A cyclic or excessively deep source graph raises an `InvalidOperationException` instead of overflowing the stack; the limit is configurable with `MaxDepth`.
+- **Opt-in Query Projection** -- `ProjectMapped` turns a registered map into a `Select` expression an `IQueryable` provider can translate, so a database query reads only the columns the destination needs.
 - **No External Dependencies** -- Pure .NET with zero third-party dependencies.
 - **Documented and Source-Linked** -- Every public API member ships XML documentation for IntelliSense, and the package is source-linked so debugging into MapFlux fetches the matching source from GitHub.
 
@@ -480,6 +481,64 @@ config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore(
 
 ---
 
+### Query Projection
+
+`Map` works on objects that are already in memory. When the source is a query -- an `IQueryable<T>` from a
+database provider -- `ProjectMapped` turns the registered map into a `Select` expression instead, so the
+provider translates it and reads only the columns the destination needs:
+
+```csharp
+config.CreateMap<Customer, CustomerDto>(m => m
+    .ForMember(d => d.DisplayName, opt => opt.MapFrom(s => s.FirstName + " " + s.LastName))
+    .ForMember(d => d.Email, opt => opt.NullSubstitute("none")));
+config.CreateMap<Address, AddressDto>(m => { });
+config.CreateMap<OrderLine, OrderLineDto>(m => { });
+
+List<CustomerDto> active = db.Customers
+    .Where(c => c.IsActive)
+    .ProjectMapped<Customer, CustomerDto>(mapper)
+    .ToList();
+```
+
+The projection is built from the same configuration as `Map`: name convention, `MapFrom` (inlined as you
+wrote it), `Ignore`, `NullSubstitute`, numeric/`Nullable<T>`/enum conversions, constructor-bound
+destinations, nested maps (`s.Address == null ? null : new AddressDto { ... }`) and collection members
+(`s.Lines.Select(l => new OrderLineDto { ... }).ToList()`, or `ToArray()` for an array member). The
+expression contains no delegate calls, blocks or `throw` nodes, and it is built on first use and cached per
+`Mapper` instance until another map is registered.
+
+`GetProjection<TSource, TDestination>()` returns the expression itself, `TryGetProjection` reports problems
+without throwing, and `AssertProjectionIsValid<TSource, TDestination>()` is a startup check. All of them are on
+`Mapper` and on the `IProjectionMapper` interface it implements; `IMapper` is unchanged. With
+`MapFlux.DependencyInjection`, the registered `IMapper` is a `Mapper`, so `(IProjectionMapper)mapper` gives you
+the projection API.
+
+A map that cannot be turned into a projection is rejected when the projection is built -- never silently run
+in memory. One `InvalidOperationException` lists every offending member and the reason: a member pair with no
+conversion, a collection type that cannot be built (use an array, `List<T>` or a collection interface), or a
+cyclic type graph (`Category.Parent` mapped to `CategoryDto` again), which you break with `Ignore`:
+
+```csharp
+config.CreateMap<Category, CategoryDto>(m => m.ForMember(d => d.Parent, opt => opt.Ignore()));
+```
+
+Projection is opt-in, and its results can differ from `Map` in a few deliberate ways:
+
+- **`null` is assigned.** A `null` source value is assigned as `null` (or as the default value for a
+  non-nullable value-type member), replacing a property initializer, whereas `Map` skips the member and keeps
+  the initializer. `NullSubstitute` applies in both.
+- **Declared types decide.** Nested and element maps are chosen from the declared member types. `Map` looks
+  at the runtime type of the value, so a derived instance with its own registered map can map differently.
+- **The provider's semantics apply.** `null` comparison, string collation and the functions your `MapFrom`
+  calls are evaluated by the query provider; a `MapFrom` the provider cannot translate fails when the query
+  runs.
+- **Collections are not null-guarded.** A database collection is never `null`, so the projection reads it
+  directly. Projecting an in-memory list (`AsQueryable()`) with a `null` collection member throws
+  `ArgumentNullException`, where `Map` leaves the member `null`.
+- **No depth limit.** `MaxDepth` does not apply; a cyclic type graph is rejected when the projection is built.
+
+---
+
 ## API Reference
 
 ### Mapper
@@ -493,9 +552,19 @@ config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore(
 | `AssertConfigurationIsValid()` | Validates all registered mappings for unmapped destination properties |
 | `AssertConfigurationIsValid(bool strict)` | `strict: true` additionally validates nested and element maps and type compatibility |
 | `MaxDepth` | Maximum recursion depth of a single `Map` call (default `32`); a deeper or cyclic graph throws `InvalidOperationException` |
+| `GetProjection<TSource, TDestination>()` | Returns the registered map as an `Expression<Func<TSource, TDestination>>` a query provider can translate; throws `InvalidOperationException` listing every member that cannot be projected |
+| `TryGetProjection<TSource, TDestination>(out projection, out errors)` | Same as `GetProjection`, reporting the problems instead of throwing |
+| `AssertProjectionIsValid<TSource, TDestination>()` | Builds the projection and throws when it cannot be built -- a startup check |
 
-`Mapper` implements `IMapper` (`Map`, `CreateMap<TProfile>`) and `IExistingDestinationMapper`
-(`Map(source, destination)`), so either can be injected on its own without depending on the concrete type.
+`Mapper` implements `IMapper` (`Map`, `CreateMap<TProfile>`), `IExistingDestinationMapper`
+(`Map(source, destination)`) and `IProjectionMapper` (`GetProjection`, `TryGetProjection`), so each can be
+injected on its own without depending on the concrete type.
+
+### QueryableProjectionExtensions
+
+| Method | Description |
+|--------|-------------|
+| `ProjectMapped<TSource, TDestination>(this IQueryable<TSource> source, IProjectionMapper mapper)` | Appends `Select(mapper.GetProjection<TSource, TDestination>())` to the query |
 
 ### Profile
 

@@ -1,15 +1,21 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace MapFlux
 {
     /// <summary>
     /// The map registry: compiles and caches mapping delegates per source/destination type pair and
-    /// exposes <see cref="IMapper"/> and <see cref="IExistingDestinationMapper"/>.
+    /// exposes <see cref="IMapper"/>, <see cref="IExistingDestinationMapper"/> and <see cref="IProjectionMapper"/>.
     /// </summary>
-    public class Mapper : IMapper, IExistingDestinationMapper
+    public class Mapper : IMapper, IExistingDestinationMapper, IProjectionMapper
     {
         internal readonly ConcurrentDictionary<(Type Source, Type Destination), Func<object, object>> _mappings = new();
+
+        private readonly ConcurrentDictionary<(Type Source, Type Destination), IProjectableMap> _projectableMaps = new();
+
+        private readonly ConcurrentDictionary<(Type Source, Type Destination), ProjectionCacheEntry> _projections = new();
 
         private readonly ConcurrentDictionary<(Type Source, Type Destination), Lazy<Func<object, object, object>>> _intoMappings = new();
 
@@ -155,6 +161,7 @@ namespace MapFlux
             var destinationType = typeof(TDestination);
             _mappings[(sourceType, destinationType)] = mappingConfig.GetMappingFunction();
             _intoMappings[(sourceType, destinationType)] = CreateIntoMapping(mappingConfig);
+            _projectableMaps[(sourceType, destinationType)] = mappingConfig;
             _explicitMappings[(sourceType, destinationType)] = true;
 
             _validations[(sourceType, destinationType)] = () =>
@@ -183,6 +190,7 @@ namespace MapFlux
             var mappingConfig = new MappingExpression<TSource, TDestination>(this);
             _mappings[(sourceType, destinationType)] = mappingConfig.GetMappingFunction();
             _intoMappings[(sourceType, destinationType)] = CreateIntoMapping(mappingConfig);
+            _projectableMaps[(sourceType, destinationType)] = mappingConfig;
 
             _validations[(sourceType, destinationType)] = () =>
             {
@@ -202,6 +210,89 @@ namespace MapFlux
         {
             return new Lazy<Func<object, object, object>>(
                 mappingConfig.GetMappingIntoFunction, LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        /// <inheritdoc />
+        public Expression<Func<TSource, TDestination>> GetProjection<TSource, TDestination>()
+        {
+            var entry = GetProjectionEntry(typeof(TSource), typeof(TDestination));
+
+            if (entry.Projection is null)
+            {
+                throw new InvalidOperationException(entry.FailureMessage);
+            }
+
+            return (Expression<Func<TSource, TDestination>>)entry.Projection;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetProjection<TSource, TDestination>(
+            [NotNullWhen(true)] out Expression<Func<TSource, TDestination>>? projection,
+            out IReadOnlyList<string> errors)
+        {
+            var entry = GetProjectionEntry(typeof(TSource), typeof(TDestination));
+
+            projection = entry.Projection as Expression<Func<TSource, TDestination>>;
+            errors = entry.Errors;
+
+            return projection is not null;
+        }
+
+        /// <summary>
+        /// Builds the projection for the registered map from <typeparamref name="TSource"/> to
+        /// <typeparamref name="TDestination"/> and throws when it cannot be built, so a startup check can catch
+        /// a map that cannot be used with <see cref="QueryableProjectionExtensions.ProjectMapped{TSource, TDestination}"/>
+        /// before the first query runs.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// No map is registered for the type pair, or the map cannot be expressed as a projection. The message
+        /// lists every offending member and the reason.
+        /// </exception>
+        public void AssertProjectionIsValid<TSource, TDestination>()
+        {
+            GetProjection<TSource, TDestination>();
+        }
+
+        internal bool TryGetProjectableMap(
+            Type sourceType, Type destinationType, [NotNullWhen(true)] out IProjectableMap? map)
+        {
+            return _projectableMaps.TryGetValue((sourceType, destinationType), out map);
+        }
+
+        private ProjectionCacheEntry GetProjectionEntry(Type sourceType, Type destinationType)
+        {
+            var registrationVersion = RegistrationVersion;
+
+            if (_projections.TryGetValue((sourceType, destinationType), out var cached) &&
+                cached.RegistrationVersion == registrationVersion)
+            {
+                return cached;
+            }
+
+            var entry = BuildProjectionEntry(sourceType, destinationType, registrationVersion);
+            _projections[(sourceType, destinationType)] = entry;
+
+            return entry;
+        }
+
+        private ProjectionCacheEntry BuildProjectionEntry(Type sourceType, Type destinationType, int registrationVersion)
+        {
+            if (!TryGetProjectableMap(sourceType, destinationType, out var map))
+            {
+                var notDefined = $"Mapping from {sourceType.Name} to {destinationType.Name} is not defined.";
+
+                return new ProjectionCacheEntry(
+                    registrationVersion, null, Array.AsReadOnly(new[] { notDefined }), notDefined);
+            }
+
+            var projection = ProjectionBuilder.TryBuild(this, map, out var errors);
+
+            var failureMessage = projection is null
+                ? $"MapFlux projection from {CollectionMapper.Describe(sourceType)} to " +
+                  $"{CollectionMapper.Describe(destinationType)} cannot be built:\n{string.Join("\n", errors)}"
+                : string.Empty;
+
+            return new ProjectionCacheEntry(registrationVersion, projection, errors, failureMessage);
         }
 
         /// <summary>
@@ -342,6 +433,29 @@ namespace MapFlux
                     $"Use ForMember to map, Ignore to skip, or ensure source type " +
                     $"{typeof(TSource).Name} has matching properties.");
             }
+        }
+
+        private sealed class ProjectionCacheEntry
+        {
+            internal ProjectionCacheEntry(
+                int registrationVersion,
+                LambdaExpression? projection,
+                IReadOnlyList<string> errors,
+                string failureMessage)
+            {
+                RegistrationVersion = registrationVersion;
+                Projection = projection;
+                Errors = errors;
+                FailureMessage = failureMessage;
+            }
+
+            internal int RegistrationVersion { get; }
+
+            internal LambdaExpression? Projection { get; }
+
+            internal IReadOnlyList<string> Errors { get; }
+
+            internal string FailureMessage { get; }
         }
     }
 }
