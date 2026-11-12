@@ -2,16 +2,16 @@ namespace MapFlux.Console.Test.Dtos;
 
 public class TargetModel
 {
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
     public int Age { get; set; }
-    public TargetAddressModel Address { get; set; }
-    public List<TargetHobbyModel> Hobbies { get; set; }
+    public TargetAddressModel Address { get; set; } = null!;
+    public List<TargetHobbyModel> Hobbies { get; set; } = null!;
 }
 
 public class TargetAddressModel
 {
-    public string Street { get; set; }
-    public string City { get; set; }
+    public string Street { get; set; } = null!;
+    public string City { get; set; } = null!;
 
     [PropertyMapping("Location")]
     public double LocationID { get; set; }
@@ -19,7 +19,7 @@ public class TargetAddressModel
 
 public class TargetHobbyModel
 {
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
     public int Years { get; set; }
 
     [PropertyMapping("CreatedDateOnUTC")]

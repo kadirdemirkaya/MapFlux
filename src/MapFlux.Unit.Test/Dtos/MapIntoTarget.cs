@@ -5,16 +5,16 @@ namespace MapFlux.Unit.Test.Dtos
     public class MapIntoTarget
     {
         public int Id { get; set; }
-        public string Name { get; set; }
-        public string Secret { get; set; }
-        public string Untouched { get; set; }
-        public MapIntoChildTarget Child { get; set; }
-        public List<ElementTarget> Items { get; set; }
+        public string Name { get; set; } = null!;
+        public string Secret { get; set; } = null!;
+        public string Untouched { get; set; } = null!;
+        public MapIntoChildTarget Child { get; set; } = null!;
+        public List<ElementTarget> Items { get; set; } = null!;
     }
 
     public class MapIntoChildTarget
     {
-        public string Note { get; set; }
+        public string Note { get; set; } = null!;
         public int Version { get; set; }
     }
 }

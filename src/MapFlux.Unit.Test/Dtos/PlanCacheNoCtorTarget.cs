@@ -2,8 +2,8 @@ namespace MapFlux.Unit.Test.Dtos
 {
     public class PlanCacheNoCtorTarget
     {
-        public string Label { get; set; }
-        public PlanCacheNoCtorChildTarget Child { get; set; }
+        public string Label { get; set; } = null!;
+        public PlanCacheNoCtorChildTarget Child { get; set; } = null!;
     }
 
     public class PlanCacheNoCtorChildTarget

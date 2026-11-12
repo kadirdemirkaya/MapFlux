@@ -2,6 +2,6 @@ namespace MapFlux.Unit.Test.Models;
 
 public class CaseSource
 {
-    public string username { get; set; }
-    public string EMAIL { get; set; }
+    public string username { get; set; } = null!;
+    public string EMAIL { get; set; } = null!;
 }

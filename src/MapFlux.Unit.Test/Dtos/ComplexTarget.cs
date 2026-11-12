@@ -4,6 +4,6 @@ namespace MapFlux.Unit.Test.Dtos
     {
         public int Identifier { get; set; }
         public int ItemCount { get; set; }
-        public string NestedValue { get; set; }
+        public string NestedValue { get; set; } = null!;
     }
 }

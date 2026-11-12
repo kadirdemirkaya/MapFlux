@@ -30,7 +30,7 @@ namespace MapFlux.Unit.Test
             var source = new AttributeSource { RawValue = 123.45 };
 
             // Act
-            var result = ModelMapper.Map<AttributeSource, AttributeTarget>(source);
+            var result = ModelMapper.Map<AttributeSource, AttributeTarget>(source)!;
 
             // Assert
             Assert.Equal(123.45, result.MappedValue);
@@ -47,7 +47,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var result = ModelMapper.Map<ParentSource, ParentTarget>(source);
+            var result = ModelMapper.Map<ParentSource, ParentTarget>(source)!;
 
             // Assert
             Assert.NotNull(result.Child);
@@ -86,7 +86,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var result = ModelMapper.Map<ListSource, ListTarget>(source);
+            var result = ModelMapper.Map<ListSource, ListTarget>(source)!;
 
             // Assert
             Assert.NotNull(result.Items);
@@ -99,7 +99,7 @@ namespace MapFlux.Unit.Test
         public void Map_NullSource_ShouldReturnDefault()
         {
             // Arrange
-            SimpleSource source = null;
+            SimpleSource? source = null;
 
             // Act
             var result = ModelMapper.Map<SimpleSource, SimpleTarget>(source);
@@ -193,7 +193,7 @@ namespace MapFlux.Unit.Test
         public void Map_NullNestedObject_ShouldLeaveNull()
         {
             // Arrange
-            var source = new ParentSource { Title = "Parent", Child = null };
+            var source = new ParentSource { Title = "Parent", Child = null! };
 
             // Act
             var result = ModelMapper.Map<ParentSource, ParentTarget>(source);
@@ -267,7 +267,7 @@ namespace MapFlux.Unit.Test
                 ModelMapper.MaxDepth = 2;
 
                 // Act
-                var mapped = ModelMapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(2));
+                var mapped = ModelMapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(2))!;
                 var exception = Assert.Throws<InvalidOperationException>(
                     () => ModelMapper.Map<CycleNodeSource, CycleNodeTarget>(BuildChain(3)));
 
@@ -302,7 +302,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source)!;
 
             // Assert
             Assert.Equal(new[] { 1, 2, 3 }, result.Numbers);
@@ -323,7 +323,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source)!;
 
             // Assert
             Assert.Equal(new[] { "a", "b" }, result.Names);
@@ -349,7 +349,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source)!;
 
             // Assert
             Assert.Equal(2, result.Counts.Count);
@@ -366,13 +366,13 @@ namespace MapFlux.Unit.Test
             var source = new ModelCollectionSource
             {
                 OptionalNumbers = new List<int?> { null, 3 },
-                Names = new[] { null, "name" },
-                ArrayItems = new[] { null, new ItemSource { Key = "A" } },
-                ListToArrayItems = new List<ItemSource> { new ItemSource { Key = "L" }, null }
+                Names = new[] { null!, "name" },
+                ArrayItems = new[] { null!, new ItemSource { Key = "A" } },
+                ListToArrayItems = new List<ItemSource> { new ItemSource { Key = "L" }, null! }
             };
 
             // Act
-            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source)!;
 
             // Assert
             Assert.Null(result.OptionalNumbers[0]);
@@ -395,7 +395,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source);
+            var result = ModelMapper.Map<ModelCollectionSource, ModelCollectionTarget>(source)!;
 
             // Assert
             Assert.Single(result.EnumerableItems);
@@ -467,8 +467,8 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var firstResult = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(first);
-            var secondResult = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(second);
+            var firstResult = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(first)!;
+            var secondResult = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(second)!;
 
             // Assert
             Assert.Equal("first", firstResult.Label);
@@ -492,9 +492,9 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var first = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
-            var second = ModelMapper.Map<PlanCacheSource, PlanCacheSecondTarget>(source);
-            var firstAgain = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
+            var first = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source)!;
+            var second = ModelMapper.Map<PlanCacheSource, PlanCacheSecondTarget>(source)!;
+            var firstAgain = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source)!;
 
             // Assert
             Assert.Equal("label", first.Label);
@@ -520,8 +520,8 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var first = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
-            var alternative = ModelMapper.Map<PlanCacheSource, PlanCacheAltTarget>(source);
+            var first = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source)!;
+            var alternative = ModelMapper.Map<PlanCacheSource, PlanCacheAltTarget>(source)!;
 
             // Assert
             Assert.Equal("note", first.Child.Note);
@@ -536,7 +536,7 @@ namespace MapFlux.Unit.Test
             var source = new PlanCacheSource { Label = "label", Count = 5 };
 
             // Act
-            var result = ModelMapper.Map<PlanCacheSource, PlanCacheFallbackTarget>(source);
+            var result = ModelMapper.Map<PlanCacheSource, PlanCacheFallbackTarget>(source)!;
 
             // Assert
             Assert.Equal("label", result.Label);
@@ -555,7 +555,7 @@ namespace MapFlux.Unit.Test
             };
 
             // Act
-            var mapped = ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(withoutChild);
+            var mapped = ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(withoutChild)!;
             var exception = Assert.Throws<InvalidOperationException>(
                 () => ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(withChild));
 
@@ -581,7 +581,7 @@ namespace MapFlux.Unit.Test
             // Act
             Assert.Throws<InvalidOperationException>(
                 () => ModelMapper.Map<PlanCacheSource, PlanCacheNoCtorTarget>(source));
-            var result = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source);
+            var result = ModelMapper.Map<PlanCacheSource, PlanCacheFirstTarget>(source)!;
 
             // Assert
             Assert.Equal("label", result.Label);
@@ -605,7 +605,7 @@ namespace MapFlux.Unit.Test
 
             // Act
             Parallel.For(0, sources.Length, index =>
-                results[index] = ModelMapper.Map<PlanCacheSource, PlanCacheConcurrentTarget>(sources[index]));
+                results[index] = ModelMapper.Map<PlanCacheSource, PlanCacheConcurrentTarget>(sources[index])!);
 
             // Assert
             for (var index = 0; index < results.Length; index++)

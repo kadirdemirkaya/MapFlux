@@ -96,7 +96,7 @@ Console.WriteLine("-------------------------");
 var nullSubMapper = new Mapper();
 nullSubMapper.CreateMap<NullSubstituteProfile>();
 
-var productWithNull = new Product { Id = 1, Name = null };
+var productWithNull = new Product { Id = 1, Name = null! };
 var productDto = nullSubMapper.Map<Product, ProductDto>(productWithNull);
 
 Console.WriteLine($"Source Name: {(productWithNull.Name == null ? "[null]" : productWithNull.Name)}");
@@ -141,7 +141,7 @@ var source = new SourceModel
     }
 };
 
-var target = ModelMapper.Map<SourceModel, TargetModel>(source);
+var target = ModelMapper.Map<SourceModel, TargetModel>(source)!;
 
 Console.WriteLine($"Name: {target.Name}, Age: {target.Age}");
 Console.WriteLine($"Address: {target.Address.Street}, {target.Address.City}, LocationID: {target.Address.LocationID}");

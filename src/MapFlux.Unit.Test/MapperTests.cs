@@ -92,7 +92,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<ElementProfile>();
-            ElementSource source = null;
+            ElementSource source = null!;
 
             // Act
             var result = _mapper.Map<ElementSource, ElementTarget>(source);
@@ -106,7 +106,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<ElementProfile>();
-            List<ElementSource> source = null;
+            List<ElementSource> source = null!;
 
             // Act
             var result = _mapper.Map<List<ElementSource>, List<ElementTarget>>(source);
@@ -123,7 +123,7 @@ namespace MapFlux.Unit.Test
             var source = new List<ElementSource>
             {
                 new ElementSource { Id = 1, Name = "First" },
-                null,
+                null!,
                 new ElementSource { Id = 2, Name = "Second" }
             };
 
@@ -147,7 +147,7 @@ namespace MapFlux.Unit.Test
                 Elements = new List<ElementSource>
                 {
                     new ElementSource { Id = 1, Name = "First" },
-                    null
+                    null!
                 }
             };
 
@@ -255,7 +255,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<NullSubstituteProfile>();
-            var source = new NullSubstituteSource { Id = 1, Name = null };
+            var source = new NullSubstituteSource { Id = 1, Name = null! };
 
             // Act
             var result = _mapper.Map<NullSubstituteSource, NullSubstituteTarget>(source);
@@ -271,7 +271,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<NullSubstituteConventionProfile>();
-            var source = new NullSubstituteSource { Id = 1, Name = null };
+            var source = new NullSubstituteSource { Id = 1, Name = null! };
 
             // Act
             var result = _mapper.Map<NullSubstituteSource, NullSubstituteTarget>(source);
@@ -659,7 +659,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<CollectionShapeProfile>();
-            var source = new CollectionShapeSource { NullItems = null };
+            var source = new CollectionShapeSource { NullItems = null! };
 
             // Act
             var result = _mapper.Map<CollectionShapeSource, CollectionShapeTarget>(source);
@@ -675,7 +675,7 @@ namespace MapFlux.Unit.Test
             _mapper.CreateMap<CollectionShapeProfile>();
             var source = new CollectionShapeSource
             {
-                ArrayItems = new[] { new ElementSource { Id = 1, Name = "First" }, null }
+                ArrayItems = new[] { new ElementSource { Id = 1, Name = "First" }, null! }
             };
 
             // Act
@@ -776,7 +776,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<ElementProfile>();
-            ElementSource[] source = null;
+            ElementSource[] source = null!;
 
             // Act
             var result = _mapper.Map<ElementSource[], ElementTarget[]>(source);
@@ -790,7 +790,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<ElementProfile>();
-            var source = new[] { new ElementSource { Id = 1, Name = "First" }, null };
+            var source = new[] { new ElementSource { Id = 1, Name = "First" }, null! };
 
             // Act
             var result = _mapper.Map<ElementSource[], ElementTarget[]>(source);
@@ -1254,7 +1254,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<MapIntoProfile>();
-            var source = new MapIntoSource { Id = 7, Name = null, Child = null, Items = null };
+            var source = new MapIntoSource { Id = 7, Name = null!, Child = null!, Items = null! };
             var existingItems = new List<ElementTarget> { new ElementTarget { ElementId = 99 } };
             var existingChild = new MapIntoChildTarget { Note = "KeptNote" };
             var destination = new MapIntoTarget
@@ -1368,7 +1368,7 @@ namespace MapFlux.Unit.Test
             var destination = new MapIntoTarget { Id = 5, Name = "Kept" };
 
             // Act
-            var result = _mapper.Map<MapIntoSource, MapIntoTarget>(null, destination);
+            var result = _mapper.Map<MapIntoSource, MapIntoTarget>(null!, destination);
 
             // Assert
             Assert.Same(destination, result);
@@ -1385,7 +1385,7 @@ namespace MapFlux.Unit.Test
 
             // Act
             var exception = Assert.Throws<ArgumentNullException>(
-                () => _mapper.Map<MapIntoSource, MapIntoTarget>(source, null));
+                () => _mapper.Map<MapIntoSource, MapIntoTarget>(source, null!));
 
             // Assert
             Assert.Equal("destination", exception.ParamName);
@@ -1521,7 +1521,7 @@ namespace MapFlux.Unit.Test
             // Arrange
             _mapper.CreateMap<ReadOnlyConstructorMapFromProfile>();
             var mapped = new ConstructorSource { Name = "Ada", Age = 36, Nickname = "Countess" };
-            var substituted = new ConstructorSource { Name = "Ada", Age = 36, Nickname = null };
+            var substituted = new ConstructorSource { Name = "Ada", Age = 36, Nickname = null! };
 
             // Act
             var mappedResult = _mapper.Map<ConstructorSource, ReadOnlyConstructorTarget>(mapped);
@@ -1566,7 +1566,7 @@ namespace MapFlux.Unit.Test
         {
             // Arrange
             _mapper.CreateMap<ConstructorMapFromProfile>();
-            var source = new ConstructorSource { Name = "Ada", Age = 36, Nickname = null };
+            var source = new ConstructorSource { Name = "Ada", Age = 36, Nickname = null! };
 
             // Act
             var result = _mapper.Map<ConstructorSource, ConstructorTarget>(source);

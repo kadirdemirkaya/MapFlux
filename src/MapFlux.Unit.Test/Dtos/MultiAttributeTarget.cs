@@ -5,8 +5,8 @@ public class MultiAttributeTarget
     public int Id { get; set; }
 
     [PropertyMapping("InternalCode")]
-    public string InternalReference { get; set; }
+    public string InternalReference { get; set; } = null!;
 
     [PropertyMapping("ExternalCode")]
-    public string ExternalReference { get; set; }
+    public string ExternalReference { get; set; } = null!;
 }
