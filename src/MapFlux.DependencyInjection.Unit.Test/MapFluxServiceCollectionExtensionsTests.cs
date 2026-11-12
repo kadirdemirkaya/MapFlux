@@ -297,5 +297,77 @@ namespace MapFlux.DependencyInjection.Unit.Test
                 new MapFluxOptions().Configure(null!)).ParamName);
             Assert.Empty(services);
         }
+
+        [Fact]
+        public void AddMapFlux_RegistersProjectionMapper_AsTheSameInstanceAsTheOtherInterfaces()
+        {
+            using var provider = BuildProvider(services => services.AddMapFlux(typeof(CustomerProfile).Assembly));
+
+            var projectionMapper = provider.GetService<IProjectionMapper>();
+
+            Assert.NotNull(projectionMapper);
+            Assert.Same(provider.GetRequiredService<IMapper>(), projectionMapper);
+            Assert.Same(provider.GetRequiredService<IExistingDestinationMapper>(), projectionMapper);
+            Assert.Null(provider.GetService<Mapper>());
+        }
+
+        [Fact]
+        public void AddMapFlux_ProjectionMapperIsSingletonAcrossScopes()
+        {
+            using var provider = BuildProvider(services => services.AddMapFlux(typeof(CustomerProfile).Assembly));
+
+            var root = provider.GetRequiredService<IProjectionMapper>();
+            using var scope = provider.CreateScope();
+
+            Assert.Same(root, scope.ServiceProvider.GetRequiredService<IProjectionMapper>());
+            Assert.Same(root, scope.ServiceProvider.GetRequiredService<IMapper>());
+        }
+
+        [Fact]
+        public void AddMapFlux_ProjectionMapperProjectsTheRegisteredMaps()
+        {
+            using var provider = BuildProvider(services => services.AddMapFlux((MapFluxOptions options) => options
+                .AddProfile<CustomerProfile>()
+                .Configure(cfg => cfg.CreateMap<Order, OrderDto>(m => { }))));
+            var projectionMapper = provider.GetRequiredService<IProjectionMapper>();
+            var orders = new[]
+            {
+                new Order { Number = 1, Customer = new Customer { Id = 10, Name = "Ada" } },
+                new Order { Number = 2, Customer = new Customer { Id = 20, Name = "Grace" } },
+            }.AsQueryable();
+
+            var projected = orders.ProjectMapped<Order, OrderDto>(projectionMapper).ToList();
+            var single = projectionMapper.GetProjection<Customer, CustomerDto>().Compile()(new Customer { Id = 3, Name = "Linus" });
+
+            Assert.Collection(projected,
+                first =>
+                {
+                    Assert.Equal(1, first.Number);
+                    Assert.Equal(10, first.Customer.Id);
+                    Assert.Equal("Ada", first.Customer.Name);
+                },
+                second =>
+                {
+                    Assert.Equal(2, second.Number);
+                    Assert.Equal(20, second.Customer.Id);
+                    Assert.Equal("Grace", second.Customer.Name);
+                });
+            Assert.Equal(3, single.Id);
+            Assert.Equal("Linus", single.Name);
+        }
+
+        [Fact]
+        public void AddMapFlux_WithValidation_ThrowsWhenTheProjectionMapperIsResolved()
+        {
+            using var provider = BuildProvider(services => services.AddMapFlux((MapFluxOptions options) =>
+            {
+                options.ValidateConfiguration = true;
+                options.Configure(cfg => cfg.CreateMap<Customer, CustomerSummary>(m => { }));
+            }));
+
+            var exception = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IProjectionMapper>());
+
+            Assert.Contains("Unmatched", exception.Message);
+        }
     }
 }

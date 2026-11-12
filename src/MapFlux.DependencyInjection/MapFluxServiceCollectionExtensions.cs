@@ -8,8 +8,8 @@ namespace MapFlux.DependencyInjection
     /// </summary>
     /// <remarks>
     /// Every overload registers one singleton <see cref="Mapper"/>, built and configured the first time it
-    /// is resolved, and exposes it as both <see cref="IMapper"/> and <see cref="IExistingDestinationMapper"/>,
-    /// so either interface resolves to the same instance with the same maps. The concrete
+    /// is resolved, and exposes it as <see cref="IMapper"/>, <see cref="IExistingDestinationMapper"/> and
+    /// <see cref="IProjectionMapper"/>, so each interface resolves to the same instance with the same maps. The concrete
     /// <see cref="Mapper"/> type itself is not registered. Call <c>AddMapFlux</c> once per service
     /// collection and declare every map in that call.
     /// </remarks>
@@ -96,6 +96,7 @@ namespace MapFlux.DependencyInjection
             services.AddSingleton(_ => new MapFluxMapperHolder(settings));
             services.AddSingleton<IMapper>(provider => provider.GetRequiredService<MapFluxMapperHolder>().Mapper);
             services.AddSingleton<IExistingDestinationMapper>(provider => provider.GetRequiredService<MapFluxMapperHolder>().Mapper);
+            services.AddSingleton<IProjectionMapper>(provider => provider.GetRequiredService<MapFluxMapperHolder>().Mapper);
 
             return services;
         }

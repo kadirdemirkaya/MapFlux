@@ -165,21 +165,24 @@ builder.Services.AddMapFlux((MapFluxOptions options) =>
 ```
 
 `AddMapFlux` is called once: a second call on the same service collection throws an
-`InvalidOperationException`, so declare every profile and map in that single call. Then inject `IMapper` or
-`IExistingDestinationMapper`:
+`InvalidOperationException`, so declare every profile and map in that single call. Then inject `IMapper`,
+`IExistingDestinationMapper` or `IProjectionMapper` (see *Query Projection* below):
 
 ```csharp
-public class UserService(IMapper mapper, IExistingDestinationMapper existingMapper)
+public class UserService(IMapper mapper, IExistingDestinationMapper existingMapper, IProjectionMapper projectionMapper)
 {
     public UserDto ToDto(User user) => mapper.Map<User, UserDto>(user);
 
     public UserDto Refresh(User user, UserDto dto) => existingMapper.Map(user, dto);
+
+    public IQueryable<UserDto> Query(IQueryable<User> users) => users.ProjectMapped<User, UserDto>(projectionMapper);
 }
 ```
 
 **Lifetime:** one `Mapper` is registered as a **singleton**. It is built and configured the first time it is
-resolved and is safe to use from many threads afterwards. `IMapper` and `IExistingDestinationMapper` resolve to
-that same instance, so both see the same maps; the concrete `Mapper` type itself is not registered.
+resolved and is safe to use from many threads afterwards. `IMapper`, `IExistingDestinationMapper` and
+`IProjectionMapper` resolve to that same instance, so all of them see the same maps; the concrete `Mapper` type
+itself is not registered. Registering `IProjectionMapper` requires `MapFlux` 1.3.0 or later.
 `ValidateConfiguration` (off by default) runs `AssertConfigurationIsValid()` when the mapper is built, and
 `StrictValidation` switches that check to `AssertConfigurationIsValid(strict: true)`.
 
@@ -510,8 +513,7 @@ expression contains no delegate calls, blocks or `throw` nodes, and it is built 
 `GetProjection<TSource, TDestination>()` returns the expression itself, `TryGetProjection` reports problems
 without throwing, and `AssertProjectionIsValid<TSource, TDestination>()` is a startup check. All of them are on
 `Mapper` and on the `IProjectionMapper` interface it implements; `IMapper` is unchanged. With
-`MapFlux.DependencyInjection`, the registered `IMapper` is a `Mapper`, so `(IProjectionMapper)mapper` gives you
-the projection API.
+`MapFlux.DependencyInjection`, inject `IProjectionMapper`: it resolves to the same singleton as `IMapper`.
 
 A map that cannot be turned into a projection is rejected when the projection is built -- never silently run
 in memory. One `InvalidOperationException` lists every offending member and the reason: a member pair with no
