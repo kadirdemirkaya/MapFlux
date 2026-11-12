@@ -5,4 +5,9 @@
 		<AssemblyInformationalVersion>$(Version)</AssemblyInformationalVersion>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'MapFlux.DependencyInjection'">
+		<Version>1.0.0</Version>
+		<AssemblyInformationalVersion>$(Version)</AssemblyInformationalVersion>
+	</PropertyGroup>
+
 </Project>

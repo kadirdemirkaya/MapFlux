@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- New package `MapFlux.DependencyInjection` 1.0.0 (its own version; `MapFlux` itself is unchanged and keeps no runtime dependency). `AddMapFlux` on `IServiceCollection` registers one singleton `Mapper`, built and configured when first resolved, behind both `IMapper` and `IExistingDestinationMapper`; the concrete `Mapper` type is not registered. Three overloads: `AddMapFlux(Action<IMapperConfigurationExpression>)`, `AddMapFlux(params Assembly[])` (an empty list throws the same `ArgumentException` as `Mapper.CreateMapsFromAssemblies`) and `AddMapFlux(Action<MapFluxOptions>)`. `MapFluxOptions` offers `AddProfile<TProfile>()`, `AddProfilesFromAssemblies(...)`, `Configure(...)`, `MaxDepth` (validated like `Mapper.MaxDepth`) and opt-in `ValidateConfiguration` / `StrictValidation` (off by default). A second `AddMapFlux` call on the same service collection throws `InvalidOperationException`. Targets net6.0–net10.0 and depends on `MapFlux` and `Microsoft.Extensions.DependencyInjection.Abstractions`.
+
 ## [1.2.0] — 2026-09-27
 
 ### Added

@@ -5,6 +5,7 @@
 | Package | Downloads | License |
 |---------|-----------|---------|
 | [![NuGet](https://img.shields.io/nuget/v/MapFlux)](https://www.nuget.org/packages/MapFlux) | [![Downloads](https://img.shields.io/nuget/dt/MapFlux)](https://www.nuget.org/packages/MapFlux) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/MapFlux/blob/main/LICENSE.txt) |
+| [![NuGet MapFlux.DependencyInjection](https://img.shields.io/nuget/v/MapFlux.DependencyInjection?label=MapFlux.DependencyInjection)](https://www.nuget.org/packages/MapFlux.DependencyInjection) | [![Downloads](https://img.shields.io/nuget/dt/MapFlux.DependencyInjection)](https://www.nuget.org/packages/MapFlux.DependencyInjection) | [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kadirdemirkaya/MapFlux/blob/main/LICENSE.txt) |
 
 MapFlux is a .NET object-to-object mapping library that gives you **two complete mappers in one package** -- a Profile-based mapper with expression-compiled mappings and a static attribute-driven mapper for convention-based scenarios. Pick the style that fits your project.
 
@@ -127,6 +128,59 @@ public class TargetModel
 
 var target = ModelMapper.Map<SourceModel, TargetModel>(source);
 ```
+
+---
+
+## Dependency Injection
+
+The separate `MapFlux.DependencyInjection` package registers the mapper in an `IServiceCollection`. The main
+`MapFlux` package stays free of runtime dependencies.
+
+```bash
+dotnet add package MapFlux.DependencyInjection
+```
+
+Pick **one** of the three overloads:
+
+```csharp
+using MapFlux.DependencyInjection;
+
+builder.Services.AddMapFlux(typeof(UserProfile).Assembly);
+```
+
+```csharp
+builder.Services.AddMapFlux(cfg => cfg.CreateMap<User, UserDto>(m => { }));
+```
+
+```csharp
+builder.Services.AddMapFlux((MapFluxOptions options) =>
+{
+    options.AddProfile<UserProfile>()
+           .AddProfilesFromAssemblies(typeof(OrderProfile).Assembly)
+           .Configure(cfg => cfg.CreateMap<Address, AddressDto>(m => { }));
+    options.MaxDepth = 64;
+    options.ValidateConfiguration = true;
+});
+```
+
+`AddMapFlux` is called once: a second call on the same service collection throws an
+`InvalidOperationException`, so declare every profile and map in that single call. Then inject `IMapper` or
+`IExistingDestinationMapper`:
+
+```csharp
+public class UserService(IMapper mapper, IExistingDestinationMapper existingMapper)
+{
+    public UserDto ToDto(User user) => mapper.Map<User, UserDto>(user);
+
+    public UserDto Refresh(User user, UserDto dto) => existingMapper.Map(user, dto);
+}
+```
+
+**Lifetime:** one `Mapper` is registered as a **singleton**. It is built and configured the first time it is
+resolved and is safe to use from many threads afterwards. `IMapper` and `IExistingDestinationMapper` resolve to
+that same instance, so both see the same maps; the concrete `Mapper` type itself is not registered.
+`ValidateConfiguration` (off by default) runs `AssertConfigurationIsValid()` when the mapper is built, and
+`StrictValidation` switches that check to `AssertConfigurationIsValid(strict: true)`.
 
 ---
 
@@ -486,8 +540,10 @@ config.CreateMap<Node, NodeDto>(m => m.ForMember(d => d.Next, opt => opt.Ignore(
 ## Project Structure
 
 - `MapFlux` -- Core library with both mapping engines
+- `MapFlux.DependencyInjection` -- `IServiceCollection` registration (`AddMapFlux`)
 - `MapFlux.Console.Test` -- Demo and usage examples
 - `MapFlux.Unit.Test` -- Comprehensive xUnit test suite
+- `MapFlux.DependencyInjection.Unit.Test` -- xUnit tests for the registration package
 
 Run tests:
 

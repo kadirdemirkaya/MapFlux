@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<DebugType>portable</DebugType>
+
+		<EnablePackageValidation>true</EnablePackageValidation>
+		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+		<PackageId>MapFlux.DependencyInjection</PackageId>
+		<Authors>Kadir Demirkaya</Authors>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<Description>Service collection registration for MapFlux: one AddMapFlux call registers a single, shared mapper for IMapper and IExistingDestinationMapper from profiles, assemblies or inline maps, with optional configuration validation.</Description>
+		<PackageProjectUrl>https://github.com/kadirdemirkaya/MapFlux</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/kadirdemirkaya/MapFlux</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>mapper object-mapping mapping dependency-injection dotnet net6 net7 net8 net9 net10</PackageTags>
+		<PackageReleaseNotes>1.0.0: First release. AddMapFlux registers one singleton MapFlux mapper behind IMapper and IExistingDestinationMapper, configured inline, from profile assemblies or through MapFluxOptions (profiles, assemblies, inline maps, MaxDepth and opt-in configuration validation). A second AddMapFlux call on the same service collection throws.</PackageReleaseNotes>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="" />
+		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
+		<None Include="..\..\assets\icon.png" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.111" PrivateAssets="All" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net6.0' OR '$(TargetFramework)' == 'net7.0' OR '$(TargetFramework)' == 'net8.0'">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.20" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\MapFlux\MapFlux.csproj" />
+	</ItemGroup>
+
+</Project>
