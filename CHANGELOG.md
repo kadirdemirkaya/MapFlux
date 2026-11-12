@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [MapFlux.DependencyInjection 1.1.0] — 2026-11-12
+
 ### Added
 
 - `MapFlux.DependencyInjection`: `AddMapFlux` also registers `IProjectionMapper`, resolving to the same singleton `Mapper` as `IMapper` and `IExistingDestinationMapper`, so the projection API (`GetProjection`, `TryGetProjection`, `ProjectMapped`) is injected directly instead of cast from `IMapper`. The concrete `Mapper` type is still not registered, and a second `AddMapFlux` call still throws. Requires `MapFlux` 1.3.0 or later.
@@ -94,6 +96,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Multi-targeting: net6.0, net7.0, net8.0, net9.0.
 
 [Unreleased]: https://github.com/kadirdemirkaya/MapFlux/compare/HEAD...HEAD
+[MapFlux.DependencyInjection 1.1.0]: https://github.com/kadirdemirkaya/MapFlux/compare/87dc1aa...HEAD
 [MapFlux.DependencyInjection 1.0.0]: https://github.com/kadirdemirkaya/MapFlux/commit/aff16bae3ea279fa722c5508282a42a0cc33eda5
 [1.3.0]: https://github.com/kadirdemirkaya/MapFlux/compare/c8b0b858c82e2df31ee1220dc1dc26c0bbdc1f66...HEAD
 [1.2.0]: https://github.com/kadirdemirkaya/MapFlux/compare/41fe862ef14cfe18db6076ef15e1802d1e9a94c1...c8b0b858c82e2df31ee1220dc1dc26c0bbdc1f66
